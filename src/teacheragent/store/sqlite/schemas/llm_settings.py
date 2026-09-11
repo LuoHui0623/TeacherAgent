@@ -1,17 +1,18 @@
-"""llm_settings 表：每角色的模型配置（当前选用模型 + 用户喜好 temperature）。"""
+"""llm_settings 表契约：每角色的模型配置。"""
+
+from typing import TypedDict
 
 TABLE = "llm_settings"
 
 COLUMNS = ("id", "role", "provider", "model", "temperature", "updated_at")
 
 
-class LlmSettingsRow:
-    """llm_settings 行模型。"""
+class LlmSettings(TypedDict):
+    """llm_settings 行。"""
 
-    def __init__(self, row: dict) -> None:
-        self.id: int = row["id"]
-        self.role: str = row["role"]
-        self.provider: str = row["provider"]
-        self.model: str = row["model"]
-        self.temperature: float = row["temperature"]
-        self.updated_at: str = row["updated_at"]
+    id: int
+    role: str
+    provider: str
+    model: str
+    temperature: float
+    updated_at: str

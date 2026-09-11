@@ -1,4 +1,4 @@
--- 001_init.sql：初始 schema
+-- init.sql：初始 schema
 CREATE TABLE IF NOT EXISTS llm_settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     role TEXT NOT NULL UNIQUE,

@@ -1,5 +1,5 @@
 """SQLite 存储子层。"""
 
-from . import database, schemas
+from . import database, repositories, schemas
 
-__all__ = ["database", "schemas"]
+__all__ = ["database", "repositories", "schemas"]

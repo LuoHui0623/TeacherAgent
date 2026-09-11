@@ -1,90 +1,68 @@
-"""LLM 调用拦截器：统一入口，自动落库，业务代码零侵入。
+"""调用日志拦截器：一次 LLM 调用的输入输出与元数据统一落库。
 
-用法：
-    from teacheragent.shared import invoke_llm
+业务代码零侵入——以上下文管理器包裹调用，正常与异常路径都会写入 `call_logs`：
 
-    resp = invoke_llm("teacher", [{"role": "user", "content": "你好"}])
-
-每次调用现读 settings（热更新零成本），调用后写 call_logs（含异常）。
+    with intercept(settings, input_text) as record:
+        record.output_text = "..."
+        record.usage = {"total_tokens": 42}
 """
 
-import json
 import time
-from typing import Any
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 
-from langchain.chat_models import init_chat_model
-
-from teacheragent.config import llm_settings
-from teacheragent.store import execute
-from teacheragent.store.sqlite.schemas import call_logs as call_logs_schema
+from teacheragent.store import repositories
 
 
-def _build_client(settings: dict) -> Any:
-    """按当前配置实例化 LangChain 客户端（每次调用现建，热更新天然成立）。"""
-    return init_chat_model(
-        settings["model"],
-        model_provider=settings["provider"],
-        api_key=llm_settings.get_api_key(settings["provider"]),
-        base_url=llm_settings.get_base_url(),
-        temperature=settings["temperature"],
-    )
+@dataclass
+class CallRecord:
+    """一次调用的可写记录，由调用方在 `with` 块内补全结果。"""
+
+    role: str
+    provider: str
+    model: str
+    input_text: str
+    prompt_version_id: int | None = None
+    output_text: str = ""
+    usage: dict = field(default_factory=dict)
 
 
-def _write_log(
+@contextmanager
+def intercept(
     settings: dict,
     input_text: str,
-    output_text: str,
-    duration_ms: int,
-    status: str,
-    error: str,
-    prompt_version_id: int | None,
-    usage: dict,
-) -> int:
-    return execute(
-        f"INSERT INTO {call_logs_schema.TABLE} "
-        "(role, provider, model, prompt_version_id, input_text, output_text, "
-        "prompt_tokens, completion_tokens, total_tokens, duration_ms, status, error) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (
-            settings["role"], settings["provider"], settings["model"],
-            prompt_version_id, input_text, output_text,
-            usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0),
-            usage.get("total_tokens", 0), duration_ms, status, error,
-        ),
-    )
-
-
-def _extract_usage(resp: Any) -> dict:
-    meta = getattr(resp, "usage_metadata", None) or {}
-    return {
-        "prompt_tokens": meta.get("input_tokens", 0),
-        "completion_tokens": meta.get("output_tokens", 0),
-        "total_tokens": meta.get("total_tokens", 0),
-    }
-
-
-def invoke_llm(
-    role: str,
-    messages: list[dict[str, str]],
     prompt_version_id: int | None = None,
-) -> Any:
-    """带日志落库的 LLM 调用。异常也落库后 re-raise。"""
-    settings = llm_settings.get_settings(role)
-    input_text = json.dumps(messages, ensure_ascii=False)
+) -> Iterator[CallRecord]:
+    """包裹一次 LLM 调用；无论成功或异常均落库，异常照常向上抛出。"""
+    record = CallRecord(
+        role=settings["role"],
+        provider=settings["provider"],
+        model=settings["model"],
+        input_text=input_text,
+        prompt_version_id=prompt_version_id,
+    )
     start = time.perf_counter()
     try:
-        client = _build_client(settings)
-        resp = client.invoke(messages)
-        duration_ms = int((time.perf_counter() - start) * 1000)
-        _write_log(
-            settings, input_text, str(resp.content), duration_ms, "ok", "",
-            prompt_version_id, _extract_usage(resp),
-        )
-        return resp
-    except Exception as e:
-        duration_ms = int((time.perf_counter() - start) * 1000)
-        _write_log(
-            settings, input_text, "", duration_ms, "error", str(e),
-            prompt_version_id, {},
-        )
+        yield record
+    except Exception as exc:
+        _write(record, start, status="error", error=str(exc))
         raise
+    else:
+        _write(record, start, status="ok")
+
+
+def _write(record: CallRecord, start: float, *, status: str, error: str = "") -> int:
+    """落库单条调用日志，返回自增 id。"""
+    return repositories.call_logs.insert_log(
+        role=record.role,
+        provider=record.provider,
+        model=record.model,
+        input_text=record.input_text,
+        output_text=record.output_text,
+        usage=record.usage,
+        duration_ms=int((time.perf_counter() - start) * 1000),
+        status=status,
+        error=error,
+        prompt_version_id=record.prompt_version_id,
+    )

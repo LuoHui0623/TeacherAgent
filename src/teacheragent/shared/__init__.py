@@ -1,5 +1,5 @@
-"""共享层：LLM 调用拦截器与通用工具。"""
+"""跨层共享：LLM 调用日志拦截器。"""
 
-from .llm_interceptor import invoke_llm
+from .llm_interceptor import CallRecord, intercept
 
-__all__ = ["invoke_llm"]
+__all__ = ["CallRecord", "intercept"]

@@ -10,3 +10,7 @@ wheels/
 .venv
 
 .env
+
+# 运行期数据（SQLite 等，不入版本库）
+data/*
+!data/.gitkeep

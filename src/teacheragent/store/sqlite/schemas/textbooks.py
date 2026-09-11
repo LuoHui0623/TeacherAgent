@@ -1,18 +1,19 @@
-"""textbooks 表：教材资产。"""
+"""textbooks 表契约：教材资产。"""
+
+from typing import TypedDict
 
 TABLE = "textbooks"
 
 COLUMNS = ("id", "title", "status", "content", "call_log_id", "created_at", "updated_at")
 
 
-class TextbookRow:
-    """textbooks 行模型。"""
+class Textbook(TypedDict):
+    """textbooks 行。"""
 
-    def __init__(self, row: dict) -> None:
-        self.id: int = row["id"]
-        self.title: str = row["title"]
-        self.status: str = row["status"]
-        self.content: str = row["content"]
-        self.call_log_id: int | None = row["call_log_id"]
-        self.created_at: str = row["created_at"]
-        self.updated_at: str = row["updated_at"]
+    id: int
+    title: str
+    status: str
+    content: str
+    call_log_id: int | None
+    created_at: str
+    updated_at: str

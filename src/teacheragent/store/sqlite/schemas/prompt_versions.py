@@ -1,16 +1,17 @@
-"""prompt_versions 表：角色提示词版本化存储。"""
+"""prompt_versions 表契约：角色提示词版本化存储。"""
+
+from typing import TypedDict
 
 TABLE = "prompt_versions"
 
 COLUMNS = ("id", "role", "version", "content", "created_at")
 
 
-class PromptVersionRow:
-    """prompt_versions 行模型。"""
+class PromptVersion(TypedDict):
+    """prompt_versions 行。"""
 
-    def __init__(self, row: dict) -> None:
-        self.id: int = row["id"]
-        self.role: str = row["role"]
-        self.version: int = row["version"]
-        self.content: str = row["content"]
-        self.created_at: str = row["created_at"]
+    id: int
+    role: str
+    version: int
+    content: str
+    created_at: str

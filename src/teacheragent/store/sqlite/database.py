@@ -1,16 +1,15 @@
 """SQLite 连接管理与迁移执行器。
 
-- 数据库文件：data/teacheragent.db（WAL 模式）
-- 迁移：按文件名顺序执行 store/sqlite/scripts/*.sql，幂等（_migrations 表记录）
+- 数据库文件：`config.paths.DB_PATH`（WAL 模式）。
+- 迁移：按文件名顺序执行 `scripts/*.sql`，幂等（`_migrations` 表记录已执行脚本名）。
 """
 
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from importlib import resources
-from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parents[4] / "data" / "teacheragent.db"
+from teacheragent.config.paths import DB_PATH
 
 
 def _connect() -> sqlite3.Connection:

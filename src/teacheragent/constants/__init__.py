@@ -1,20 +1,6 @@
-"""通用常量与枚举。"""
+"""通用常量与枚举（仅汇总导出，定义在各子模块）。"""
 
-from enum import StrEnum
+from .roles import AgentRole
+from .textbook import TextbookStatus
 
-
-class AgentRole(StrEnum):
-    """Agent 角色名。"""
-
-    TEACHER = "teacher"
-    CURRICULUM = "curriculum"
-    KNOWLEDGE_MAP = "knowledge_map"
-
-
-class TextbookStatus(StrEnum):
-    """教材生命周期状态。"""
-
-    DRAFT = "draft"
-    GENERATING = "generating"
-    READY = "ready"
-    ARCHIVED = "archived"
+__all__ = ["AgentRole", "TextbookStatus"]
