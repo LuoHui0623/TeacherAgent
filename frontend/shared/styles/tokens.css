@@ -1,0 +1,39 @@
+/* TeacherAgent 设计令牌 — 基于 minimalist-ui 设计语言
+ * 暖色单色系 + 语义淡彩点缀；仅 transform/opacity 动效 */
+:root {
+  /* 画布与表面 */
+  --canvas: #f7f6f3;
+  --surface: #ffffff;
+  --surface-alt: #f9f9f8;
+
+  /* 文本 */
+  --ink: #111111;
+  --ink-secondary: #55524d;
+  --ink-tertiary: #8a867f;
+
+  /* 结构线 */
+  --border: #eaeaea;
+
+  /* 主按钮 */
+  --btn-primary-bg: #111111;
+  --btn-primary-hover: #333333;
+
+  /* 语义淡彩（标签 / 状态） */
+  --pastel-red-bg: #fdebec;   --pastel-red-text: #9f2f2d;
+  --pastel-blue-bg: #e1f3fe;  --pastel-blue-text: #1f6c9f;
+  --pastel-green-bg: #edf3ec; --pastel-green-text: #346538;
+  --pastel-yellow-bg: #fbf3db; --pastel-yellow-text: #956400;
+
+  /* 圆角 */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* 动效 */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 200ms;
+  --duration-slow: 600ms;
+
+  /* 阴影（仅悬停微升） */
+  --shadow-lift: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
