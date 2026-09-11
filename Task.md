@@ -84,15 +84,11 @@ flowchart LR
    - **BASE_URL 键名**：当前 `.env` 实为 `OPENCODE_BASE_URL`（非早前设想的 `LLM_BASE_URL`），实现按实际键名读取；多 provider 时再演进为 `{PROVIDER}_BASE_URL`。
 4. [已确认] **拦截器实现方式**：自封装 invoke 包装函数（方案 B）。核心优势：每次调用现读 settings → 热更新零成本；日志逻辑完全可控、异常落库路径明确。流式版本 `stream_llm` 在后续 SSE 任务时补充。
 5. [已确认] **SSE 后置**：本轮基建不含流式接口，教师对话流式归后续业务任务。
-6. [待确认] **LLM 调用的编排归属**：`invoke_llm` 放哪层？三选一——
-   - A：`shared/llm_interceptor.py`（现状，shared 跨层共享，可直接依赖 store）
-   - B：`services/llm.py`（最合规：services 是唯一可同时依赖 store + capabilities + shared 的层；shared 退化为纯日志写入器）
-   - C：`capabilities/llm_client.py`（最简，但 capabilities 直连 store，违反 `Arch.md`）
-   倾向 **B**：合规且职责清晰，shared 只做「日志落库」一件事。
-7. [待确认] **`schemas/` 契约形态**：`TypedDict`（推荐，纯类型零行为）／仅保留 `TABLE`+`COLUMNS` 常量（最简）／维持现状的 `*Row` 类（最重）。
-8. [待确认] **是否引入 `python-dotenv` 与 `pytest`**：建议都引入（前者替换手写解析，后者落实测试先行）。是否同意新增依赖？
-9. [待确认] **是否引入 `ruff`**（格式 + lint + import 排序）：可选，若同意则加 `[tool.ruff]` 并跑一次全量格式化。
-10. [待确认] **`data/teacheragent.db` 是否入库**：当前已提交进 git（运行期产物混入版本库），建议改为 gitignore + 提供 `data/.gitkeep`。
+6. [已确认] **LLM 调用的编排归属**：取 **B —— `services/llm.py`**。services 是唯一可同时依赖 store + capabilities + shared 的层；`shared/llm_interceptor.py` 退化为纯日志写入器（上下文管理器，成功/异常均落库）。`capabilities/llm_client.py` 仅负责建客户端与归一 usage。
+7. [已确认] **`schemas/` 契约形态**：取 **`TypedDict`** —— 纯类型零行为，契约有独立落点，且 `dict` 可直接消费。
+8. [已确认] **依赖引入**：引入 `pytest`（dev，落实测试先行）；`.env` 解析**手写**（不引 `python-dotenv`，当前仅两行配置，手写 8 行即可覆盖且零依赖）。
+9. [待确认] **是否引入 `ruff`**（格式 + lint + import 排序）：可选，若同意则加 `[tool.ruff]` 并跑一次全量格式化。**本轮未做，保持现状。**
+10. [已确认] **`data/teacheragent.db` 移出版本库**：改为 gitignore（`data/*` + `!data/.gitkeep`），已 `git rm --cached`。
 
 ## 六、已确认口径
 
@@ -100,11 +96,13 @@ flowchart LR
 2. **改代码先整理到 Task.md**：方案落盘本文件，确认后再行动。
 3. **数据库用 SQLite**（WAL），非 PostgreSQL；迁移路径预留（标准 SQL 写法）。
 4. **LLM 配置三层来源**：Key=系统环境变量（经 `.env` 的 `API_KEY_NAME` 两级间接取得）、URL=`.env`、模型列表+默认模型=代码内置、temperature=llm_settings 表（用户喜好）。
-5. **拦截器 = 自封装 invoke**：`shared/llm_interceptor.py` 提供 `invoke_llm(role, messages, prompt_version_id)`，内部现读 settings → 实例化客户端 → 调用 → 落库（含异常）。
+5. **LLM 调用唯一入口 = `services.llm.invoke_llm`**：读配置（store 仓储）→ 建客户端（capabilities）→ 拦截器计时落库（shared）。`shared/llm_interceptor.intercept` 为上下文管理器，成功与异常路径均写 `call_logs`，异常照常上抛。
 6. 技术栈沿用：SQLite（标准库 sqlite3）+ LangChain + FastAPI。
-7. 分层依赖：`api → services → capabilities / store`；LLM 调用一律经 `shared` 拦截器落库。
+7. 分层依赖：`api → services → capabilities / store`；`capabilities → config / constants / shared`；`config` 不得依赖 `store`（由 `tests/test_layering.py` 强制）。
+8. **契约形态**：表契约用 `TypedDict`（`store/sqlite/schemas/`）；包内 `__init__.py` 只做汇总导出，不承载定义。
+9. **测试先行**：验收断言落 `tests/`（pytest），`uv run pytest` 为任务完成判据。
 
-无阻塞项，可开工。
+无阻塞项。
 
 ## 七、实施任务与依赖
 
@@ -160,21 +158,22 @@ flowchart LR
 
 **意义**：把 T1–T4 的「能跑」升级为「分层正确、契约闭环、可回归测试」。
 
-**状态**：【待确认。方案见下，确认后开工】
+**状态**：【已完成。T5.1–T5.9 全部落地，提交 `ceabc2e`】
 
 **范围与拆分**（每项对应 R 编号）：
 
 | 子项 | 内容 | 对应 |
 |---|---|---|
 | T5.1 | 删除废弃草稿 `store/database.py` | R1 |
-| T5.2 | 抽出 `store/sqlite/repositories/`：`llm_settings.py`（settings 持久化）、`call_logs.py`（日志写入 + usage 归一）；`config` 层去副作用，只留纯配置 | R2 R3 R5 |
-| T5.3 | `config/` 拆分为 `paths.py`（路径集中）、`env.py`（.env 加载 + `API_KEY_NAME` 两级间接解析 + BASE_URL 读取）、`llm_catalog.py`（模型候选清单 + 默认项 + 默认 temperature，纯常量契约） | R2 R6 R7 |
-| T5.4 | `schemas/` 契约形态调整（待 Q7 确认） | R4 |
-| T5.5 | LLM 调用编排归位（待 Q6 确认）：`shared/llm_interceptor.py` 退化为纯日志写入器；编排进 `services/llm.py` | R5 |
+| T5.2 | 抽出 `store/sqlite/repositories/`：`llm_settings.py`（settings 持久化，get 无副作用 + upsert）、`call_logs.py`（日志写入 + 按角色计数）；`config` 层去副作用 | R2 R3 R5 |
+| T5.3 | `config/` 拆分为 `paths.py`（pyproject 标记定位项目根）、`env.py`（手写 `.env` 解析 + `API_KEY_NAME` 两级间接 + BASE_URL）、`llm_catalog.py`（模型候选 + 默认项 + 默认 temperature） | R2 R6 R7 |
+| T5.4 | `schemas/` 契约改为 `TypedDict`（6 表） | R4 |
+| T5.5 | 编排归位：`services/llm.py` 提供 `invoke_llm`；`shared/llm_interceptor.py` 退化为纯日志写入器（`intercept` 上下文管理器） | R5 |
 | T5.6 | `api/main.py` 加 lifespan → `migrate()` | R8 |
-| T5.7 | `scripts/verify_infra.py` 迁移为 `tests/` 下 pytest 用例（待 Q8 确认） | R9 R12 |
-| T5.8 | `store/__init__.py` 收敛为唯一入口；`role` 参数统一为 `AgentRole` | R10 R11 |
-| T5.9 | `data/teacheragent.db` 移出版本库（待 Q10 确认） | — |
+| T5.7 | `scripts/verify_infra.py` 迁移为 `tests/` 下 pytest 用例（30 项） | R9 R12 |
+| T5.8 | `store/__init__.py` 收敛为唯一入口；`role` 参数统一接受 `AgentRole` | R10 R11 |
+| T5.9 | `data/teacheragent.db` 移出版本库（gitignore + `.gitkeep`） | — |
+| 附加 | 新增 `tests/test_layering.py`：静态强制「config 不依赖 store」与「`__init__.py` 不承载定义」 | 防回归 |
 
 **契约：`config/env.py`**（API Key 两级间接）
 
@@ -194,7 +193,7 @@ def get_base_url() -> str
 
 边界：任一级缺失（`.env` 无 `API_KEY_NAME`、或该名在系统环境变量中不存在）均返回空串，不抛异常；调用方在 `invoke_llm` 内由 provider 层报错，并照常落 `call_logs`（status=error）。
 
-**目标结构**（确认后落地）：
+**已落地结构**：
 
 ```
 src/teacheragent/
@@ -215,17 +214,34 @@ src/teacheragent/
 
 tests/
 ├── conftest.py                  # 临时 DB fixture（隔离 data/）
-├── test_migrate.py
-├── test_llm_settings.py
-└── test_interceptor.py
+├── test_migrate.py              # 迁移幂等 + 建表/索引/WAL
+├── test_llm_settings.py         # 默认读取无副作用 + upsert + 角色隔离
+├── test_env.py                  # API Key 两级间接 + 边界缺失
+├── test_interceptor.py          # 成功/异常双路径落库
+├── test_llm_service.py          # 编排全链路（假客户端，不触网）+ 热更新
+├── test_paths.py                # 项目根定位
+└── test_layering.py             # 分层约束（config 不依赖 store）
 ```
 
 **验收**：`uv run pytest` 全绿；`rg "from teacheragent.store" src/teacheragent/config` 无结果（config 无 store 依赖）；`migrate()` 幂等；无重复文件。
 
-**验证结果**：
+**验证结果**：【已完成，提交 `ceabc2e`】
+- `uv run pytest -q` → **30 passed in 0.74s**
+- `rg "teacheragent.store" src/teacheragent/config` → 无匹配（由 `test_layering.py` 静态强制）
+- 废弃草稿 `store/database.py`、旧 `config/llm_settings.py`、`scripts/verify_infra.py` 均已删除
+- `data/teacheragent.db` 已 `git rm --cached`，`.gitignore` 改为 `data/*` + `!data/.gitkeep`
+- 应用可导入：`from teacheragent.api.main import app` → `TeacherAgent API`
 
 ## 八、推荐执行顺序
 
-T1 → T2 → T3 → T4（已完成，提交 `ec9fca7`）→ **T5.1 → T5.2 → T5.3 → T5.4 → T5.5 → T5.6 → T5.7 → T5.8 → T5.9 → T6 提交**。
+T1 → T2 → T3 → T4（已完成，提交 `ec9fca7`）→ T5.1 → … → T5.9（已完成，提交 `ceabc2e`）。
 
-前置：需先确认第五节 Q6–Q10 五问。
+基建与重构阶段**全部收口**。后续候选方向（待新任务规划）：
+
+1. **SSE 流式接口**：`services/llm.py` 补 `stream_llm`，拦截器支持流式用量累计；教师对话流式接口归此。
+2. **提示词资产管理**：`prompt_versions` 表的读写仓储 + 按情境选用策略集。
+3. **知识地图**：Neo4j 接入（节点/边、先修关系、笔记双链注入）。
+4. **前后端联通**：`api/` 暴露 settings 读写与模型候选清单，前端画像页/设置接上。
+5. **用户画像与行为记录**：画像构建（不量化打分）、行为记录先行积累。
+
+唯一悬置项：Q9（是否引入 `ruff` 做格式与 lint），不影响当前交付。
