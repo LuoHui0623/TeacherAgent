@@ -5,7 +5,7 @@ import pytest
 from teacheragent.constants import AgentRole
 from teacheragent.services import llm
 from teacheragent.store import repositories
-from teacheragent.store.sqlite import database
+from teacheragent.store.sqlite.tables.call_logs import CallLogRow
 
 
 class _FakeResponse:
@@ -18,21 +18,28 @@ class _FakeClient:
         return _FakeResponse()
 
 
-def _logs() -> list[dict]:
-    return database.query("SELECT * FROM call_logs ORDER BY id")
+def _latest() -> CallLogRow:
+    logs = repositories.call_logs.list_by_role(str(AgentRole.TEACHER))
+    assert logs, "日志未落库"
+    return logs[0]
 
 
 def test_success_writes_log_with_usage(monkeypatch):
     monkeypatch.setattr(llm.llm_client, "build_client", lambda _settings: _FakeClient())
 
-    response = llm.invoke_llm(AgentRole.TEACHER, [{"role": "user", "content": "hi"}])
+    response = llm.invoke_llm(
+        AgentRole.TEACHER,
+        [{"role": "user", "content": "hi"}],
+        prompt_ref="prompts/teacher.md",
+    )
 
     assert response.content == "fake-answer"
-    log = _logs()[0]
+    log = _latest()
     assert log["status"] == "ok"
     assert log["role"] == "teacher"
     assert log["total_tokens"] == 3
     assert log["output_text"] == "fake-answer"
+    assert log["prompt_ref"] == "prompts/teacher.md"
 
 
 def test_client_build_failure_is_logged_and_reraised(monkeypatch):
@@ -44,7 +51,7 @@ def test_client_build_failure_is_logged_and_reraised(monkeypatch):
     with pytest.raises(RuntimeError, match="missing api key"):
         llm.invoke_llm(AgentRole.TEACHER, [{"role": "user", "content": "hi"}])
 
-    log = _logs()[0]
+    log = _latest()
     assert log["status"] == "error"
     assert "missing api key" in log["error"]
 

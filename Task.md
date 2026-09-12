@@ -6,7 +6,7 @@
 
 后端业务功能（教材生产线、教师 Agent）尚未开工，需要先落地三项基础设施，保证后续业务代码有统一的存储、模型调用与日志底座：
 
-1. **SQL（SQLite 存储层）**：教材资产、调用日志、用户画像、行为记录、提示词版本的持久化。
+1. **SQL（SQLite 存储层）**：教材资产、调用日志、用户画像、行为记录的持久化。提示词**不入库**，由 `prompts/*.md` + git 管理。
 2. **LLM**：模型调用封装 + LLM settings（运行时解析、支持教师 Agent 模型热更新）。
 3. **Log（调用日志拦截器）**：所有 LLM 调用经 `shared` 拦截器统一落库（token/耗时/提示词版本），角色代码零侵入。
 
@@ -61,13 +61,23 @@ flowchart LR
 | R11 | `llm_settings.role` 为裸字符串，`AgentRole` 枚举未被使用 | contracts 未闭环 | 契约空转，拼写错误无保护 |
 | R12 | 无 pytest / lint 配置 | AGENTS.md「测试先行」 | 无自动化质量门 |
 
+### 二次审查（T5 重构后复查，用户指出）
+
+| # | 问题 | 依据 | 影响 |
+|---|---|---|---|
+| R13 | `schemas/` **语义错位**：目录名为「schema」，装的却是行类型；真 DDL 在 `scripts/init.sql` | 名实不符 | 概念混淆，读者无法判断谁是权威 |
+| R14 | **三份真相互不校验**：`init.sql` DDL ／ `COLUMNS` 元组 ／ TypedDict 键，各写一遍 | 无交叉校验 | 漂移不可发现 |
+| R15 | **行契约零消费方**：6 个 TypedDict 与 6 处 `COLUMNS` 全仓无引用（`rg` 取证：仅 `TABLE` 被用） | YAGNI（重犯 R4） | 死代码，维护成本无人受益 |
+| R16 | `get_settings()` **两分支形状不一致**：命中 DB 返回 6 键，默认分支返回 4 键；`LlmSettings` 契约声明 6 键必填 | Liskov／契约失真 | 契约是假的，且因无人使用而永不被发现 |
+| R17 | **提示词内容入 SQL**（`prompt_versions` 表存 role/version/content） | git 已是版本库，且有 diff/blame/review；SQLite 副本无法审阅 | 用错存储形态：文档资产当关系数据存 |
+
 
 ## 四、非目标
 
 - 不实现业务功能（教材生成、教师对话流）。
 - 不做 Neo4j 知识地图存储（后续任务）。
 - 不做后端实时推送（WS / 后台任务队列）。
-- 不做提示词内容本身（constants 不提供提示词，仅版本化存储机制）。
+- 不做提示词内容本身：提示词为 `prompts/*.md` 文档资产（git 版本化），不进 SQL；`constants/` 亦不提供提示词。
 
 ## 五、待确认问题与风险
 
@@ -89,6 +99,9 @@ flowchart LR
 8. [已确认] **依赖引入**：引入 `pytest`（dev，落实测试先行）；`.env` 解析**手写**（不引 `python-dotenv`，当前仅两行配置，手写 8 行即可覆盖且零依赖）。
 9. [待确认] **是否引入 `ruff`**（格式 + lint + import 排序）：可选，若同意则加 `[tool.ruff]` 并跑一次全量格式化。**本轮未做，保持现状。**
 10. [已确认] **`data/teacheragent.db` 移出版本库**：改为 gitignore（`data/*` + `!data/.gitkeep`），已 `git rm --cached`。
+11. [已确认] **提示词改由文件管理**（R17）：`prompts/*.md`，git 承担版本与回溯；删除 `prompt_versions` 表；`call_logs.prompt_version_id` → `prompt_ref`（存 `prompts/<role>.md` 相对路径）。
+12. [已确认] **`schemas/` 改名 `tables/`**（R13）：语义为「表行契约」；`scripts/*.sql` 为 DDL 唯一权威。
+13. [待确认] **迁移策略**：项目未发布，`init.sql` 允许直接修改（配合删除本地 `data/teacheragent.db` 重建）；**首次发布后一律新增脚本、不再改动已应用脚本**。是否认可该分界线？
 
 ## 六、已确认口径
 
@@ -232,16 +245,71 @@ tests/
 - `data/teacheragent.db` 已 `git rm --cached`，`.gitignore` 改为 `data/*` + `!data/.gitkeep`
 - 应用可导入：`from teacheragent.api.main import app` → `TeacherAgent API`
 
+### T6. 消除死代码与契约失真，提示词改为文件管理（消除 R13–R17）
+
+**意义**：T5 重构后仍存在「契约是假的、死代码、存储形态用错」三类缺陷，本轮收口。核心原则：**契约必须有消费方、且必须被强制校验；文档资产不进 SQL**。
+
+**状态**：【已完成。T6.1–T6.9 全部落地】
+
+**范围与拆分**：
+
+| 子项 | 内容 | 对应 |
+|---|---|---|
+| T6.1 | `store/sqlite/schemas/` → `store/sqlite/tables/`（语义：表行契约）；`scripts/*.sql` 为 DDL 唯一权威 | R13 |
+| T6.2 | 删除 `COLUMNS` 常量（第三份真相 + 死代码，rg 取证 0 消费方） | R14 R15 |
+| T6.3 | 行契约**只保留有仓储消费方的表**：`LlmSettingsRow`、`CallLogRow`，并由仓储返回类型真实引用；删除 `prompt_versions` / `textbooks` / `user_profiles` / `behavior_logs` 四个无人消费的行契约（结构留在 `init.sql`，等有仓储再建） | R15 |
+| T6.4 | 有效配置契约 `LlmSettings`（4 字段：role/provider/model/temperature）与行契约 `LlmSettingsRow`（6 字段）**分离**；`get_settings()` 两分支统一投影为 4 字段，不再泄漏 `id`/`updated_at` | R16 |
+| T6.5 | **提示词改为文件**：新建 `prompts/<role>.md`（`teacher` / `curriculum` / `knowledge_map`）+ `prompts/README.md` 记录命名与引用约定；删除 `init.sql` 的 `prompt_versions` 表 | R17 |
+| T6.6 | `call_logs.prompt_version_id` → `prompt_ref TEXT`（存 `prompts/<role>.md` 相对路径） | R17 |
+| T6.7 | 新增 `tests/test_table_contracts.py`：以 `PRAGMA table_info` 的列名与顺序 **有序** 对比 `XxxRow.__annotations__` 键，契约与 DDL 漂移立即失败 | R14 |
+| T6.8 | 删除本地 `data/teacheragent.db` 重建（未发布，`init.sql` 可直接改）；在 `prompts/README.md` 或 `store/sqlite/scripts/` 注记迁移分界线 | 迁移策略 |
+| T6.9 | 同步 `src/teacheragent/README.md`（表数量、提示词来源、tables 目录语义） | 文档一致 |
+
+**目标结构变更**：
+
+```
+prompts/                          # 新增：提示词资产（git 承担版本与回溯）
+├── README.md                     # 命名与引用约定
+├── teacher.md
+├── curriculum.md
+└── knowledge_map.md
+
+src/teacheragent/
+├── config/
+│   └── llm.py                    # 由 llm_catalog.py 改名：候选清单 + 默认值 + LlmSettings（有效配置契约）
+└── store/sqlite/
+    ├── tables/                   # 由 schemas/ 改名：表行契约（仅保留有消费方的）
+    │   ├── llm_settings.py       # TABLE + LlmSettingsRow（6 字段）
+    │   └── call_logs.py          # TABLE + CallLogRow（prompt_ref 取代 prompt_version_id）
+    └── scripts/init.sql          # DDL 唯一权威（5 表，删除 prompt_versions）
+```
+
+**验收**：
+- `uv run pytest` 全绿，含新增契约漂移与形状一致性断言
+- `rg "COLUMNS" src` / `rg "prompt_versions" src` / `rg "prompt_version_id" src` / `rg "schemas" src` → **均无结果**
+- `LlmSettings` 键集合 = `['role', 'provider', 'model', 'temperature']`；`get_settings()` 两分支同形（由测试断言）
+- 本地 `data/teacheragent.db` 已删除，由 `migrate()` 按新 `init.sql` 重建（5 表）
+- 应用可导入：`from teacheragent.api.main import app` → `TeacherAgent API`
+
+**验证结果**：【已完成】
+- `uv run pytest -q` → **39 passed in 0.77s**（新增契约漂移与形状一致性断言）
+- `rg "COLUMNS" src` / `rg "prompt_versions" src` / `rg "prompt_version_id" src` / `rg "schemas" src` → **均无结果**
+- `LlmSettings` 键集合 = `['role', 'provider', 'model', 'temperature']`；`get_settings()` 两分支同形（由测试断言）
+- 本地 `data/teacheragent.db` 已删除，由 `migrate()` 按新 `init.sql` 重建（5 表）
+- 应用可导入：`from teacheragent.api.main import app` → `TeacherAgent API`
+
 ## 八、推荐执行顺序
 
-T1 → T2 → T3 → T4（已完成，提交 `ec9fca7`）→ T5.1 → … → T5.9（已完成，提交 `ceabc2e`）。
+T1 → T2 → T3 → T4（已完成，提交 `ec9fca7`）→ T5.1 → … → T5.9（已完成，提交 `ceabc2e`）→ **T6.1 → … → T6.9（待 Q13 确认）**。
 
-基建与重构阶段**全部收口**。后续候选方向（待新任务规划）：
+**当前阻断点**：Q13（迁移分界线）。确认后一次性执行 T6.1–T6.9。
 
-1. **SSE 流式接口**：`services/llm.py` 补 `stream_llm`，拦截器支持流式用量累计；教师对话流式接口归此。
-2. **提示词资产管理**：`prompt_versions` 表的读写仓储 + 按情境选用策略集。
+后续候选方向（待新任务规划）：
+
+1. **SSE 流式接口**：`services/llm.py` 补 `stream_llm`，拦截器支持流式用量累计。
+2. **提示词装配**：`prompts/*.md` 的加载/渲染能力（待有真实业务流消费方时再建，避免重犯 R15）。
 3. **知识地图**：Neo4j 接入（节点/边、先修关系、笔记双链注入）。
-4. **前后端联通**：`api/` 暴露 settings 读写与模型候选清单，前端画像页/设置接上。
+4. **前后端联通**：`api/` 暴露 settings 读写与模型候选清单。
 5. **用户画像与行为记录**：画像构建（不量化打分）、行为记录先行积累。
 
-唯一悬置项：Q9（是否引入 `ruff` 做格式与 lint），不影响当前交付。
+另一悬置项：Q9（是否引入 `ruff` 做格式与 lint），不影响当前交付。

@@ -1,10 +1,25 @@
-"""模型候选清单契约（纯常量，无副作用）。
+"""LLM 配置域：模型候选清单、默认值与**有效配置契约**（纯配置，无副作用）。
 
 `provider` 统一为 `openai`：当前通过 OpenAI 兼容网关（见 `.env` 的
 `OPENCODE_BASE_URL`）路由到各模型，由网关按 `model` 名分发。
+
+术语区分：
+- ``LlmSettings``：**有效配置**（合并代码默认后的运行期配置），`build_client` 的入参。
+- ``LlmSettingsRow``：**表存储形态**（含 ``id``/``updated_at``），见
+  `store.sqlite.tables.llm_settings`。二者不可混用。
 """
 
 from dataclasses import dataclass
+from typing import TypedDict
+
+
+class LlmSettings(TypedDict):
+    """某角色的有效 LLM 配置（仓储读取后投影所得）。"""
+
+    role: str
+    provider: str
+    model: str
+    temperature: float
 
 
 @dataclass(frozen=True)

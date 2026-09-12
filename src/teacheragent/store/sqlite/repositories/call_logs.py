@@ -1,7 +1,8 @@
-"""call_logs 仓储：调用日志写入。"""
+"""call_logs 仓储：调用日志写入与查询。"""
 
 from teacheragent.store.sqlite import database
-from teacheragent.store.sqlite.schemas import call_logs as schema
+from teacheragent.store.sqlite.tables import call_logs as table
+from teacheragent.store.sqlite.tables.call_logs import CallLogRow
 
 
 def insert_log(
@@ -15,20 +16,23 @@ def insert_log(
     duration_ms: int = 0,
     status: str = "ok",
     error: str = "",
-    prompt_version_id: int | None = None,
+    prompt_ref: str | None = None,
 ) -> int:
-    """写入一条调用日志，返回自增 id。"""
+    """写入一条调用日志，返回自增 id。
+
+    `prompt_ref` 存提示词资产相对路径（如 `prompts/teacher.md`）。
+    """
     tokens = usage or {}
     return database.execute(
-        f"INSERT INTO {schema.TABLE} "
-        "(role, provider, model, prompt_version_id, input_text, output_text, "
+        f"INSERT INTO {table.TABLE} "
+        "(role, provider, model, prompt_ref, input_text, output_text, "
         "prompt_tokens, completion_tokens, total_tokens, duration_ms, status, error) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             role,
             provider,
             model,
-            prompt_version_id,
+            prompt_ref,
             input_text,
             output_text,
             tokens.get("prompt_tokens", 0),
@@ -41,9 +45,17 @@ def insert_log(
     )
 
 
+def list_by_role(role: str, limit: int = 100) -> list[CallLogRow]:
+    """按角色倒序列出调用日志（成本统计与日志查阅）。"""
+    return database.query(
+        f"SELECT * FROM {table.TABLE} WHERE role = ? ORDER BY id DESC LIMIT ?",
+        (role, limit),
+    )
+
+
 def count_by_role(role: str) -> int:
-    """某角色的调用次数（用于成本统计与测试断言）。"""
+    """某角色的调用次数。"""
     rows = database.query(
-        f"SELECT COUNT(*) AS n FROM {schema.TABLE} WHERE role = ?", (role,)
+        f"SELECT COUNT(*) AS n FROM {table.TABLE} WHERE role = ?", (role,)
     )
     return rows[0]["n"] if rows else 0

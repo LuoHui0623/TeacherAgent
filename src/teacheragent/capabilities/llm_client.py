@@ -5,9 +5,10 @@ from typing import Any
 from langchain.chat_models import init_chat_model
 
 from teacheragent.config import env
+from teacheragent.config.llm import LlmSettings
 
 
-def build_client(settings: dict) -> Any:
+def build_client(settings: LlmSettings) -> Any:
     """按当前配置实例化 LangChain 客户端。
 
     每次调用现建，因此配置变更即刻生效（热更新零成本）。

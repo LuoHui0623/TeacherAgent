@@ -1,4 +1,11 @@
 -- init.sql：初始 schema
+--
+-- 本文件是表结构的唯一权威（DDL）。Python 侧的行契约见 ../tables/，
+-- 二者由 tests/test_table_contracts.py 强制一致（列名与顺序）。
+--
+-- 迁移策略：首次发布前可直接修改本文件（配合删除 data/teacheragent.db 重建）；
+-- 首次发布后一律新增脚本，不再改动已应用的脚本。
+
 CREATE TABLE IF NOT EXISTS llm_settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     role TEXT NOT NULL UNIQUE,
@@ -8,21 +15,12 @@ CREATE TABLE IF NOT EXISTS llm_settings (
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE TABLE IF NOT EXISTS prompt_versions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    role TEXT NOT NULL,
-    version INTEGER NOT NULL,
-    content TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    UNIQUE(role, version)
-);
-
 CREATE TABLE IF NOT EXISTS call_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     role TEXT NOT NULL,
     provider TEXT NOT NULL,
     model TEXT NOT NULL,
-    prompt_version_id INTEGER,
+    prompt_ref TEXT,
     input_text TEXT NOT NULL,
     output_text TEXT NOT NULL DEFAULT '',
     prompt_tokens INTEGER NOT NULL DEFAULT 0,

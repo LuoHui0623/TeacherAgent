@@ -2,7 +2,7 @@
 
 业务代码零侵入——以上下文管理器包裹调用，正常与异常路径都会写入 `call_logs`：
 
-    with intercept(settings, input_text) as record:
+    with intercept(settings, input_text, "prompts/teacher.md") as record:
         record.output_text = "..."
         record.usage = {"total_tokens": 42}
 """
@@ -23,7 +23,7 @@ class CallRecord:
     provider: str
     model: str
     input_text: str
-    prompt_version_id: int | None = None
+    prompt_ref: str | None = None
     output_text: str = ""
     usage: dict = field(default_factory=dict)
 
@@ -32,7 +32,7 @@ class CallRecord:
 def intercept(
     settings: dict,
     input_text: str,
-    prompt_version_id: int | None = None,
+    prompt_ref: str | None = None,
 ) -> Iterator[CallRecord]:
     """包裹一次 LLM 调用；无论成功或异常均落库，异常照常向上抛出。"""
     record = CallRecord(
@@ -40,7 +40,7 @@ def intercept(
         provider=settings["provider"],
         model=settings["model"],
         input_text=input_text,
-        prompt_version_id=prompt_version_id,
+        prompt_ref=prompt_ref,
     )
     start = time.perf_counter()
     try:
@@ -64,5 +64,5 @@ def _write(record: CallRecord, start: float, *, status: str, error: str = "") ->
         duration_ms=int((time.perf_counter() - start) * 1000),
         status=status,
         error=error,
-        prompt_version_id=record.prompt_version_id,
+        prompt_ref=record.prompt_ref,
     )
