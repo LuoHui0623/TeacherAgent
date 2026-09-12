@@ -6,14 +6,24 @@ export type ModuleKey =
   | 'bookshelf'
   | 'learning-zone'
   | 'notes'
-  | 'profile';
+  | 'profile'
+  | 'settings';
 
 interface WorkbenchState {
   activeModule: ModuleKey;
+  activeTextbookId: string;
+  sidebarCollapsed: boolean;
   setActive: (key: ModuleKey) => void;
+  openTextbook: (textbookId: string) => void;
+  toggleSidebar: () => void;
 }
 
 export const useWorkbenchStore = create<WorkbenchState>((set) => ({
   activeModule: 'learning-zone',
+  activeTextbookId: 'calculus',
+  sidebarCollapsed: false,
   setActive: (key) => set({ activeModule: key }),
+  openTextbook: (textbookId) =>
+    set({ activeTextbookId: textbookId, activeModule: 'learning-zone' }),
+  toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
 }));

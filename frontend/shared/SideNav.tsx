@@ -1,12 +1,17 @@
-import { useWorkbenchStore, type ModuleKey } from '../services/workbenchStore';
-import { messages } from '../constants';
 import {
-  GraphIcon,
   BooksIcon,
+  CaretDoubleLeftIcon,
+  CaretDoubleRightIcon,
   GraduationCapIcon,
+  GraphIcon,
   NoteBlankIcon,
   UserCircleIcon,
+  UserFocusIcon,
 } from '@phosphor-icons/react';
+
+import { messages } from '../constants';
+import { useWorkbenchStore, type ModuleKey } from '../services/workbenchStore';
+import { domId } from './ids';
 
 const items: { key: ModuleKey; label: string; icon: typeof GraphIcon }[] = [
   { key: 'knowledge-map', label: messages.nav.knowledgeMap, icon: GraphIcon },
@@ -14,45 +19,56 @@ const items: { key: ModuleKey; label: string; icon: typeof GraphIcon }[] = [
   { key: 'learning-zone', label: messages.nav.learningZone, icon: GraduationCapIcon },
   { key: 'notes', label: messages.nav.notes, icon: NoteBlankIcon },
   { key: 'profile', label: messages.nav.profile, icon: UserCircleIcon },
+  { key: 'settings', label: messages.nav.settings, icon: UserFocusIcon },
 ];
 
-/* 左侧导航栏：工作台式布局，无路由 */
 export function SideNav() {
-  const activeModule = useWorkbenchStore((s) => s.activeModule);
-  const setActive = useWorkbenchStore((s) => s.setActive);
+  const activeModule = useWorkbenchStore((state) => state.activeModule);
+  const collapsed = useWorkbenchStore((state) => state.sidebarCollapsed);
+  const setActive = useWorkbenchStore((state) => state.setActive);
+  const toggleSidebar = useWorkbenchStore((state) => state.toggleSidebar);
 
   return (
-    <nav
-      className="flex h-full w-56 shrink-0 flex-col border-r py-6"
-      style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-    >
-      <div className="px-6">
-        <h1 className="text-base font-semibold tracking-tight">{messages.app.title}</h1>
-        <p className="mt-1 text-xs" style={{ color: 'var(--ink-tertiary)' }}>
-          {messages.app.subtitle}
-        </p>
-      </div>
-      <ul className="mt-8 flex flex-col gap-1 px-3">
+    <nav className={`side-nav ${collapsed ? 'is-collapsed' : ''}`}>
+      <ul className="side-nav__items">
         {items.map(({ key, label, icon: Icon }) => {
           const active = key === activeModule;
           return (
             <li key={key}>
               <button
+                type="button"
+                id={domId('shell', 'nav', key)}
                 onClick={() => setActive(key)}
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
-                style={{
-                  background: active ? 'var(--canvas)' : 'transparent',
-                  color: active ? 'var(--ink)' : 'var(--ink-secondary)',
-                  fontWeight: active ? 600 : 400,
-                }}
+                className={`side-nav__item ${active ? 'is-active' : ''}`}
+                title={collapsed ? label : undefined}
+                aria-label={label}
+                aria-current={active ? 'page' : undefined}
               >
-                <Icon size={18} weight={active ? 'fill' : 'regular'} />
-                {label}
+                <span className="side-nav__icon">
+                  <Icon size={19} weight={active ? 'fill' : 'regular'} />
+                </span>
+                <span className="side-nav__label">{label}</span>
               </button>
             </li>
           );
         })}
       </ul>
+
+      <button
+        type="button"
+        id="shell-sidebar-toggle"
+        className="side-nav__toggle"
+        aria-label={collapsed ? '展开导航' : '收起导航'}
+        aria-expanded={!collapsed}
+        title={collapsed ? '展开导航' : '收起导航'}
+        onClick={toggleSidebar}
+      >
+        {collapsed ? (
+          <CaretDoubleRightIcon size={14} weight="bold" />
+        ) : (
+          <CaretDoubleLeftIcon size={14} weight="bold" />
+        )}
+      </button>
     </nav>
   );
 }

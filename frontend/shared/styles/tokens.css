@@ -1,28 +1,64 @@
-/* TeacherAgent 设计令牌 — 基于 minimalist-ui 设计语言
- * 暖色单色系 + 语义淡彩点缀；仅 transform/opacity 动效 */
+/* TeacherAgent 设计令牌：冷中性画布 + 青绿色操作色 + 琥珀状态色 */
 :root {
+  --font-ui: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
+  --font-reading: var(--font-ui);
+  --font-mono: 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  --app-font-size: 15px;
+
   /* 画布与表面 */
-  --canvas: #f7f6f3;
+  --canvas: #f3f7f6;
   --surface: #ffffff;
-  --surface-alt: #f9f9f8;
+  --surface-alt: #edf4f2;
+  --surface-strong: #e3eeeb;
+  --surface-hover: #f2f6f5;
 
   /* 文本 */
-  --ink: #111111;
-  --ink-secondary: #55524d;
-  --ink-tertiary: #8a867f;
+  --ink: #12211f;
+  --ink-secondary: #4d625e;
+  --ink-tertiary: #80928e;
 
   /* 结构线 */
-  --border: #eaeaea;
+  --border: #d9e5e2;
+  --border-strong: #c5d6d2;
+
+  /* 操作色 */
+  --accent: #0d766e;
+  --accent-hover: #095f59;
+  --accent-bright: #0fb9a6;
+  --accent-bright-hover: #16cdb8;
+  --accent-soft: #dff2ee;
+  --accent-soft-strong: #cce9e3;
+  --accent-bright-soft: #d8faf4;
+  --accent-ink: #07534d;
+  --amber: #b86d0d;
+  --amber-bright: #d98a12;
+  --amber-soft: #fff0d3;
+  --amber-bright-soft: #fff6e4;
+  --danger: #b64545;
+  --danger-bright: #e45a5a;
+  --danger-soft: #fcebea;
+  --danger-bright-soft: #fff0ef;
+
+  /* 语义别名 */
+  --color-bg: var(--canvas);
+  --color-surface: var(--surface);
+  --color-text: var(--ink);
+  --color-text-muted: var(--ink-secondary);
+  --color-primary: var(--accent);
+  --color-primary-hover: var(--accent-hover);
+  --color-warning: var(--amber);
+  --color-danger: var(--danger);
+  --focus-ring: 0 0 0 3px var(--accent-soft);
 
   /* 主按钮 */
-  --btn-primary-bg: #111111;
-  --btn-primary-hover: #333333;
+  --btn-primary-bg: var(--accent);
+  --btn-primary-hover: var(--accent-bright-soft);
 
   /* 语义淡彩（标签 / 状态） */
-  --pastel-red-bg: #fdebec;   --pastel-red-text: #9f2f2d;
-  --pastel-blue-bg: #e1f3fe;  --pastel-blue-text: #1f6c9f;
-  --pastel-green-bg: #edf3ec; --pastel-green-text: #346538;
-  --pastel-yellow-bg: #fbf3db; --pastel-yellow-text: #956400;
+  --pastel-red-bg: #fcebea;    --pastel-red-text: #9b3434;
+  --pastel-blue-bg: #e4f1fb;   --pastel-blue-text: #286b96;
+  --pastel-green-bg: #dff2ee;  --pastel-green-text: #07534d;
+  --pastel-yellow-bg: #fff0d3; --pastel-yellow-text: #8a520d;
 
   /* 圆角 */
   --radius-sm: 4px;
@@ -32,8 +68,68 @@
   /* 动效 */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --duration-fast: 200ms;
+  --duration-medium: 360ms;
   --duration-slow: 600ms;
+  --motion-fast: var(--duration-fast);
+  --motion-base: var(--duration-medium);
+  --motion-slow: var(--duration-slow);
 
-  /* 阴影（仅悬停微升） */
-  --shadow-lift: 0 2px 8px rgba(0, 0, 0, 0.04);
+  /* 阴影 */
+  --shadow-panel: 0 1px 2px rgba(18, 33, 31, 0.03), 0 8px 24px rgba(18, 61, 55, 0.04);
+  --shadow-lift: 0 10px 28px rgba(18, 61, 55, 0.1);
+  --shadow-overlay: 0 24px 70px rgba(15, 35, 32, 0.2);
+
+  /* 层级 */
+  --z-topbar: 40;
+  --z-toast: 80;
+  --z-overlay: 100;
+}
+
+:root[data-color-scheme='blue'] {
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-bright: #3b82f6;
+  --accent-bright-hover: #60a5fa;
+  --accent-soft: #e5efff;
+  --accent-soft-strong: #d1e2ff;
+  --accent-bright-soft: #edf4ff;
+  --accent-ink: #1d4f9e;
+}
+
+:root[data-color-scheme='violet'] {
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-bright: #9061f9;
+  --accent-bright-hover: #a78bfa;
+  --accent-soft: #f0eaff;
+  --accent-soft-strong: #e4d9ff;
+  --accent-bright-soft: #f6f1ff;
+  --accent-ink: #6231b8;
+}
+
+:root[data-color-scheme='amber'] {
+  --accent: #b45309;
+  --accent-hover: #92400e;
+  --accent-bright: #d97706;
+  --accent-bright-hover: #f59e0b;
+  --accent-soft: #fff1da;
+  --accent-soft-strong: #ffe4bd;
+  --accent-bright-soft: #fff7e8;
+  --accent-ink: #8a430b;
+}
+
+:root[data-font-family='system'] {
+  --font-ui: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
+}
+
+:root[data-font-family='humanist'] {
+  --font-ui: 'Segoe UI Variable', 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+}
+
+:root[data-font-family='serif'] {
+  --font-ui: 'Noto Serif SC', 'Songti SC', SimSun, Georgia, serif;
+}
+
+:root[data-font-family='mono'] {
+  --font-ui: 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
 }

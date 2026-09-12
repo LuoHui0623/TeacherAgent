@@ -1,0 +1,279 @@
+/* Button system: icon ghost, text ghost, primary, secondary, select */
+.button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1;
+  transition:
+    transform var(--motion-fast) var(--ease-out-expo),
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,
+    opacity var(--motion-fast) ease;
+}
+
+.button--sm {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.button:focus-visible,
+.icon-button:focus-visible {
+  outline: 3px solid var(--accent-soft-strong);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  opacity: 0.45;
+}
+
+.button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.button:not(:disabled):active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Text ghost */
+.button--text-ghost,
+.button--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-secondary);
+}
+
+.button--text-ghost:hover:not(:disabled),
+.button--text-ghost:focus-visible,
+.button--ghost:hover:not(:disabled),
+.button--ghost:focus-visible {
+  border-color: transparent;
+  background: var(--surface-hover);
+  color: var(--accent-bright);
+}
+
+/* Icon ghost */
+.button--icon-ghost,
+.icon-button {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-secondary);
+}
+
+.button--icon-ghost:hover:not(:disabled),
+.button--icon-ghost:focus-visible,
+.icon-button:not(:disabled):hover,
+.icon-button:focus-visible {
+  border-color: transparent;
+  background: var(--surface-hover);
+  color: var(--accent-bright);
+  transform: translateY(-1px);
+}
+
+.icon-button:disabled {
+  opacity: 0.3;
+}
+
+.button--icon-ghost.is-danger:hover:not(:disabled),
+.button--icon-ghost.is-danger:focus-visible,
+.icon-button--danger:not(:disabled):hover,
+.icon-button--danger:focus-visible {
+  border-color: transparent;
+  background: var(--danger-bright-soft);
+  color: var(--danger-bright);
+}
+
+/* Primary */
+.button--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 5px 14px rgba(13, 118, 110, 0.18);
+}
+
+.button--primary:hover:not(:disabled),
+.button--primary:focus-visible {
+  border-color: var(--accent-bright);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(13, 118, 110, 0.24);
+}
+
+/* Secondary / general button */
+.button--secondary {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--ink-secondary);
+  box-shadow: none;
+}
+
+.button--secondary:hover:not(:disabled),
+.button--secondary:focus-visible {
+  border-color: var(--accent-bright);
+  background: var(--surface-hover);
+  color: var(--accent-bright);
+  box-shadow: none;
+}
+
+/* Semantic accents */
+.button--accent {
+  border-color: #e8c98f;
+  background: var(--amber-soft);
+  color: #7c4a0b;
+}
+
+.button--accent:hover:not(:disabled),
+.button--accent:focus-visible {
+  border-color: var(--amber-bright);
+  background: var(--surface-hover);
+  color: var(--amber-bright);
+}
+
+.button--danger {
+  border-color: #efc5c2;
+  background: transparent;
+  color: var(--danger);
+}
+
+.button--danger:hover:not(:disabled),
+.button--danger:focus-visible {
+  border-color: var(--danger-bright);
+  background: var(--danger-bright-soft);
+  color: var(--danger-bright);
+}
+
+.button__spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 9999px;
+  animation: spin-soft 700ms linear infinite;
+}
+
+/* Select button */
+.button--select {
+  position: relative;
+  width: 100%;
+  min-height: 40px;
+  justify-content: space-between;
+  padding: 0;
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+}
+
+.button--select:not(.is-open):hover:not(:disabled),
+.button--select:not(.is-open):focus-visible {
+  border-color: var(--accent-bright);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.button--select.is-open,
+.button--select.is-open:hover:not(:disabled),
+.button--select.is-open:focus-visible {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.button--select__label {
+  min-width: 0;
+  padding: 0 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.button--select__arrow-wrap {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin-right: 14px;
+  color: var(--ink-tertiary);
+}
+
+.button--select__arrow {
+  transition: transform var(--motion-fast) var(--ease-out-expo);
+}
+
+.button--select.is-open .button--select__arrow {
+  transform: rotate(90deg);
+}
+
+.select-button {
+  position: relative;
+}
+
+.select-button__menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  max-height: 260px;
+  padding: 5px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  box-shadow: var(--shadow-overlay);
+  animation: select-menu-in var(--motion-fast) var(--ease-out-expo) both;
+}
+
+.select-button__option {
+  display: block;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 12px;
+  text-align: left;
+}
+
+.select-button__option:hover,
+.select-button__option:focus-visible,
+.select-button__option.is-selected {
+  background: var(--surface-hover);
+  color: var(--accent-bright);
+  outline: none;
+}
+
+@keyframes select-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

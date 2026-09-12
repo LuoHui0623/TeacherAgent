@@ -54,3 +54,8 @@ def get_api_key() -> str:
 def get_base_url() -> str:
     """读 `.env` 的 `OPENCODE_BASE_URL`（OpenAI 兼容网关地址）。"""
     return get_env("OPENCODE_BASE_URL")
+
+
+def get_api_url() -> str:
+    """读固定部署变量 `API_URL`，兼容旧部署变量 `OPENCODE_BASE_URL`。"""
+    return get_env("API_URL") or get_env("OPENCODE_BASE_URL")

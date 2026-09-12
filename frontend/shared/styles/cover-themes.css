@@ -1,0 +1,64 @@
+/* Shared textbook cover palette */
+.book-cover.book-cover--jade,
+.reader-book-mark.book-cover--jade,
+.reader-page.book-cover--jade {
+  --cover-bg: #0b6d65;
+  --cover-ink: #f2fffc;
+  --cover-accent: #94e1d3;
+}
+
+.book-cover.book-cover--navy,
+.reader-book-mark.book-cover--navy,
+.reader-page.book-cover--navy {
+  --cover-bg: #244b70;
+  --cover-ink: #f5f9ff;
+  --cover-accent: #a6c9ec;
+}
+
+.book-cover.book-cover--coral,
+.reader-book-mark.book-cover--coral,
+.reader-page.book-cover--coral {
+  --cover-bg: #b84c47;
+  --cover-ink: #fff8f6;
+  --cover-accent: #f5b5ad;
+}
+
+.book-cover.book-cover--amber,
+.reader-book-mark.book-cover--amber,
+.reader-page.book-cover--amber {
+  --cover-bg: #a86b0e;
+  --cover-ink: #fffaf0;
+  --cover-accent: #f4cf83;
+}
+
+.book-cover.book-cover--plum,
+.reader-book-mark.book-cover--plum,
+.reader-page.book-cover--plum {
+  --cover-bg: #674764;
+  --cover-ink: #fff7fd;
+  --cover-accent: #daadd4;
+}
+
+.book-cover.book-cover--slate,
+.reader-book-mark.book-cover--slate,
+.reader-page.book-cover--slate {
+  --cover-bg: #40565f;
+  --cover-ink: #f5fbfd;
+  --cover-accent: #acc8d1;
+}
+
+.book-cover.book-cover--sky,
+.reader-book-mark.book-cover--sky,
+.reader-page.book-cover--sky {
+  --cover-bg: #316f8f;
+  --cover-ink: #f4fbff;
+  --cover-accent: #a5d5e9;
+}
+
+.book-cover.book-cover--indigo,
+.reader-book-mark.book-cover--indigo,
+.reader-page.book-cover--indigo {
+  --cover-bg: #454d84;
+  --cover-ink: #f8f8ff;
+  --cover-accent: #b9c0ef;
+}

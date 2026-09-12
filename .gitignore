@@ -14,3 +14,16 @@ wheels/
 # 运行期数据（SQLite 等，不入版本库）
 data/*
 !data/.gitkeep
+
+# 运行期日志
+logs/*
+!logs/.gitkeep
+!logs/backend/
+!logs/frontend/
+logs/backend/*
+!logs/backend/.gitkeep
+logs/frontend/*
+!logs/frontend/.gitkeep
+
+# 
+Task*.md

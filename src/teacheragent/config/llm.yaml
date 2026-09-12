@@ -1,0 +1,20 @@
+provider: openai
+default_temperature: 0.7
+models:
+  - provider: opencode
+    model: omen-alpha
+    label: Omen Alpha
+    is_default: true
+  - provider: openai
+    model: gpt-4o-mini
+    label: GPT-4o mini
+  - provider: openai
+    model: gpt-4o
+    label: GPT-4o
+  - provider: openai
+    model: claude-sonnet-4-5
+    label: Claude Sonnet 4.5
+role_defaults:
+  teacher: omen-alpha
+  curriculum: omen-alpha
+  knowledge_map: omen-alpha

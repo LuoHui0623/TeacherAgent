@@ -10,6 +10,7 @@ export const messages = {
     learningZone: '学习区',
     notes: '笔记区',
     profile: '用户画像',
+    settings: '设置',
   },
   tutor: {
     title: '教师 Agent',

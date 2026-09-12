@@ -4,7 +4,7 @@ from typing import TypedDict
 
 
 class LlmSettingsRow(TypedDict):
-    """`llm_settings` 行（表存储形态，含主键与时间戳）。"""
+    """`llm_settings` 行（历史配置表，Profile 已替代其运行时用途）。"""
 
     id: int
     role: str
@@ -18,4 +18,4 @@ TABLE = "llm_settings"
 """表名。"""
 
 ROW = LlmSettingsRow
-"""行契约，供 `tests/test_table_contracts.py` 与 DDL 交叉校验。"""
+"""行契约。"""

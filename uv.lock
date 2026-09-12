@@ -953,6 +953,7 @@ dependencies = [
     { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "neo4j" },
+    { name = "pyyaml" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -968,6 +969,7 @@ requires-dist = [
     { name = "langchain-openai", specifier = ">=1.6.2" },
     { name = "langgraph", specifier = ">=1.2.11" },
     { name = "neo4j", specifier = ">=6.3.0" },
+    { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.52.4" },
 ]
 

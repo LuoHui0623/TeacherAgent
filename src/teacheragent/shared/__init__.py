@@ -1,5 +1,5 @@
-"""跨层共享：LLM 调用日志拦截器。"""
+"""跨层共享基建。"""
 
-from .llm_interceptor import CallRecord, intercept
+from . import llm_client
 
-__all__ = ["CallRecord", "intercept"]
+__all__ = ["llm_client"]

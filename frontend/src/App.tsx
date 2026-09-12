@@ -1,13 +1,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { SideNav } from '../shared/SideNav';
+import { AppShell } from '../shared/AppShell';
 import { useWorkbenchStore } from '../services/workbenchStore';
 import { KnowledgeMapModule } from '../modules/knowledge-map/KnowledgeMapModule';
 import { BookshelfModule } from '../modules/bookshelf/BookshelfModule';
 import { LearningZoneModule } from '../modules/learning-zone/LearningZoneModule';
 import { NotesModule } from '../modules/notes/NotesModule';
-import { ProfileModule } from '../modules/profile/ProfileModule';
+import { SettingsModule } from '../modules/settings/SettingsModule';
+import { ModulePlaceholder } from '../shared/ModulePlaceholder';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+    },
+  },
+});
 
 /* 工作台式布局：左侧导航 + 主区切换（无路由库） */
 function MainArea() {
@@ -22,19 +30,18 @@ function MainArea() {
     case 'notes':
       return <NotesModule />;
     case 'profile':
-      return <ProfileModule />;
+      return <ModulePlaceholder title="用户画像" description="用户画像域保留中。" />;
+    case 'settings':
+      return <SettingsModule />;
   }
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex h-full">
-        <SideNav />
-        <main className="flex-1 overflow-y-auto p-8">
-          <MainArea />
-        </main>
-      </div>
+      <AppShell>
+        <MainArea />
+      </AppShell>
     </QueryClientProvider>
   );
 }

@@ -1,20 +1,14 @@
-"""LLM 配置域：模型候选清单、默认值与**有效配置契约**（纯配置，无副作用）。
-
-`provider` 统一为 `openai`：当前通过 OpenAI 兼容网关（见 `.env` 的
-`OPENCODE_BASE_URL`）路由到各模型，由网关按 `model` 名分发。
-
-术语区分：
-- ``LlmSettings``：**有效配置**（合并代码默认后的运行期配置），`build_client` 的入参。
-- ``LlmSettingsRow``：**表存储形态**（含 ``id``/``updated_at``），见
-  `store.sqlite.tables.llm_settings`。二者不可混用。
-"""
+"""LLM 固化配置：从 `llm.yaml` 读取模型候选、角色默认与默认温度。"""
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TypedDict
+
+import yaml
 
 
 class LlmSettings(TypedDict):
-    """某角色的有效 LLM 配置（仓储读取后投影所得）。"""
+    """某角色的有效 LLM 配置。"""
 
     role: str
     provider: str
@@ -24,7 +18,7 @@ class LlmSettings(TypedDict):
 
 @dataclass(frozen=True)
 class ModelOption:
-    """候选模型。"""
+    """模型候选。"""
 
     provider: str
     model: str
@@ -32,29 +26,64 @@ class ModelOption:
     is_default: bool = False
 
 
-DEFAULT_TEMPERATURE = 0.7
-"""默认采样温度（用户未设置时使用）。"""
+YAML_FILE = Path(__file__).parent / "llm.yaml"
+"""固化配置文件路径。"""
 
-DEFAULT_MODELS: tuple[ModelOption, ...] = (
-    ModelOption("openai", "gpt-4o-mini", "GPT-4o mini", is_default=True),
-    ModelOption("openai", "gpt-4o", "GPT-4o"),
-    ModelOption("openai", "claude-sonnet-4-5", "Claude Sonnet 4.5"),
-)
+
+def _load_config() -> dict:
+    """读取并解析固化配置；缺失时返回空字典。"""
+    if not YAML_FILE.is_file():
+        return {}
+    return yaml.safe_load(YAML_FILE.read_text(encoding="utf-8")) or {}
+
+
+def _options() -> tuple[ModelOption, ...]:
+    raw_options = _load_config().get("models", [])
+    return tuple(
+        ModelOption(
+            provider=raw.get("provider", ""),
+            model=raw.get("model", ""),
+            label=raw.get("label", raw.get("model", "")),
+            is_default=bool(raw.get("is_default", False)),
+        )
+        for raw in raw_options
+    )
+
+
+def default_temperature() -> float:
+    """用户未设置时使用的默认温度。"""
+    return float(_load_config().get("default_temperature", 0.7))
 
 
 def default_option() -> ModelOption:
-    """默认模型项。"""
-    return next(o for o in DEFAULT_MODELS if o.is_default)
+    """全局默认模型项。"""
+    options = _options()
+    return next(option for option in options if option.is_default)
 
 
 def find_option(model: str) -> ModelOption | None:
     """按模型名查找候选项，未收录时返回 None。"""
-    return next((o for o in DEFAULT_MODELS if o.model == model), None)
+    return next((option for option in _options() if option.model == model), None)
+
+
+def role_default_option(role: str) -> ModelOption:
+    """某角色的默认模型项；未配置角色时回落到全局默认。"""
+    model = _load_config().get("role_defaults", {}).get(role)
+    if model:
+        option = find_option(model)
+        if option:
+            return option
+    return default_option()
 
 
 def list_options() -> list[dict]:
     """候选清单（供前端展示）。"""
     return [
-        {"provider": o.provider, "model": o.model, "label": o.label, "is_default": o.is_default}
-        for o in DEFAULT_MODELS
+        {
+            "provider": option.provider,
+            "model": option.model,
+            "label": option.label,
+            "is_default": option.is_default,
+        }
+        for option in _options()
     ]
