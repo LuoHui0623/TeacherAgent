@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from teacheragent.api.main import app
 from teacheragent.api.routes import llm as llm_routes
-from teacheragent.capabilities.llm import catalog, settings
+from teacheragent.infrastructure.llm import catalog, settings
 from teacheragent.services.llm import base_agent
 from teacheragent.services.llm import catalog as catalog_service
 

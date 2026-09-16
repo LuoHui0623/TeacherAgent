@@ -3,9 +3,9 @@
 import pytest
 
 from teacheragent.constants import AgentRole
-from teacheragent.capabilities.llm.call_logger import log_llm_call
-from teacheragent.store import repositories
-from teacheragent.store.sqlite.tables.call_logs import CallLogRow
+from teacheragent.infrastructure.llm.call_logger import log_llm_call
+from teacheragent.infrastructure.store import repositories
+from teacheragent.infrastructure.store.sqlite.tables.call_logs import CallLogRow
 
 SETTINGS = {
     "role": str(AgentRole.TEACHER),
@@ -45,9 +45,9 @@ def test_failure_path_writes_error_log_and_reraises():
 
 
 def test_prompt_ref_is_recorded():
-    with log_llm_call(SETTINGS, "in", "prompts/teacher.md"):
+    with log_llm_call(SETTINGS, "in", "capabilities/tutoring/prompts/teacher.md"):
         pass
-    assert _latest()["prompt_ref"] == "prompts/teacher.md"
+    assert _latest()["prompt_ref"] == "capabilities/tutoring/prompts/teacher.md"
 
 
 def test_prompt_ref_defaults_to_none():

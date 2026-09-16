@@ -4,6 +4,7 @@ import { XIcon } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 
 import { domId } from '../ids';
+import { Button } from './Button';
 
 interface DrawerProps {
   id: string;
@@ -46,16 +47,17 @@ export function Drawer({
       >
         <header className="ui-overlay__header">
           <h2>{title}</h2>
-          <button
+          <Button
             type="button"
             id={domId(id, 'close')}
-            className="ui-overlay__close"
+            variant="primary"
+            className="ui-close-button"
             onClick={onClose}
             aria-label="关闭抽屉"
             title="关闭"
           >
-            <XIcon size={17} />
-          </button>
+            <XIcon size={17} weight="bold" />
+          </Button>
         </header>
         <div className="ui-drawer__body">{children}</div>
         {footer ? <footer className="ui-overlay__footer">{footer}</footer> : null}

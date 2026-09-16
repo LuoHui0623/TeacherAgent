@@ -5,6 +5,7 @@ export type ButtonVariant =
   | 'secondary'
   | 'text-ghost'
   | 'icon-ghost'
+  | 'floating'
   | 'ghost'
   | 'accent'
   | 'danger';

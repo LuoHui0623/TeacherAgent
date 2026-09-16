@@ -1,8 +1,8 @@
 """Profile 服务编排：把能力层校验和存储封装为 API 可用接口。"""
 
-from teacheragent.capabilities.llm import profiles as profile_capability
+from teacheragent.infrastructure.llm import profiles as profile_capability
 from teacheragent.constants import AgentRole
-from teacheragent.store.sqlite.tables.llm_profiles import LlmProfileRow
+from teacheragent.infrastructure.store.sqlite.tables.llm_profiles import LlmProfileRow
 
 
 def list_profiles(role: AgentRole | str) -> list[LlmProfileRow]:

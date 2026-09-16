@@ -125,7 +125,7 @@ export function AgentProfileModule() {
             <span>{models.length} 个模型</span>
           </div>
           <Button
-            id="settings-refresh-models"
+            id="settings-models-refresh"
             variant="secondary"
             onClick={() => refresh.mutate()}
             disabled={refresh.isPending}
@@ -293,12 +293,12 @@ export function AgentProfileModule() {
           </div>
 
           <div className="panel-actions">
-            <Button id="settings-save-profile" type="submit" disabled={save.isPending}>
+            <Button id="settings-profile-save" type="submit" disabled={save.isPending}>
               {save.isPending ? '保存中' : editingProfileId ? '更新 Profile' : '创建 Profile'}
             </Button>
             {editingProfileId && (
               <Button
-                id="settings-cancel-profile-edit"
+              id="settings-profile-cancel-edit"
                 type="button"
                 variant="text-ghost"
                 onClick={resetForm}
@@ -318,7 +318,7 @@ export function AgentProfileModule() {
               <h2>{roleMeta[role].label} Agent</h2>
             </div>
             <Button
-              id={domId('settings', 'test-invoke', role)}
+              id={domId('settings', 'test', 'invoke', role)}
               variant="accent"
               onClick={() => testInvoke.mutate()}
               disabled={testInvoke.isPending || !activeProfile}
@@ -380,7 +380,12 @@ export function AgentProfileModule() {
                   <div className="profile-row__actions">
                     <button
                       type="button"
-                      id={domId('settings', `profile-${role}-activate`, profile.profile_id)}
+                      id={domId(
+                        'settings',
+                        'profile',
+                        'activate',
+                        `${role}-${profile.profile_id}`,
+                      )}
                       onClick={() => activate.mutate(profile.profile_id)}
                       disabled={profile.active === 1 || profile.valid !== 1 || activate.isPending}
                       className="icon-button interactive-control"
@@ -391,7 +396,12 @@ export function AgentProfileModule() {
                     </button>
                     <button
                       type="button"
-                      id={domId('settings', `profile-${role}-edit`, profile.profile_id)}
+                      id={domId(
+                        'settings',
+                        'profile',
+                        'edit',
+                        `${role}-${profile.profile_id}`,
+                      )}
                       onClick={() => {
                         setEditingProfileId(profile.profile_id);
                         setProfileId(profile.profile_id);
@@ -406,7 +416,12 @@ export function AgentProfileModule() {
                     </button>
                     <button
                       type="button"
-                      id={domId('settings', `profile-${role}-delete`, profile.profile_id)}
+                      id={domId(
+                        'settings',
+                        'profile',
+                        'delete',
+                        `${role}-${profile.profile_id}`,
+                      )}
                       onClick={() => remove.mutate(profile.profile_id)}
                       disabled={profile.active === 1 || remove.isPending}
                       className="icon-button icon-button--danger interactive-control"

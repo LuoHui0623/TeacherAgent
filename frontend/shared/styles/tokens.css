@@ -83,6 +83,7 @@
   --z-topbar: 40;
   --z-toast: 80;
   --z-overlay: 100;
+  --shell-topbar-height: 58px;
 }
 
 :root[data-color-scheme='blue'] {

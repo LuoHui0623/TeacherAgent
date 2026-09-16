@@ -24,59 +24,136 @@ export interface TextbookSummary {
   theme: CoverTheme;
 }
 
-export interface ProseBlock {
-  id: string;
-  type: 'prose';
-  paragraphs: string[];
+export type InlineNode =
+  | { type: 'text'; value: string }
+  | { type: 'strong'; children: InlineNode[] }
+  | { type: 'emphasis'; children: InlineNode[] }
+  | { type: 'delete'; children: InlineNode[] }
+  | { type: 'inlineCode'; value: string }
+  | {
+      type: 'link';
+      url: string;
+      title?: string;
+      children: InlineNode[];
+    }
+  | { type: 'image'; url: string; alt: string; title?: string }
+  | { type: 'math'; value: string }
+  | { type: 'break' }
+  | { type: 'html'; value: string };
+
+export interface SourceRange {
+  start: number;
+  end: number;
 }
 
-export interface HeadingBlock {
+export interface MarkdownBlockBase {
   id: string;
+  source: string;
+  range: SourceRange;
+}
+
+export interface ProseBlock extends MarkdownBlockBase {
+  type: 'prose';
+  children: InlineNode[];
+  plainText: string;
+}
+
+export interface HeadingBlock extends MarkdownBlockBase {
   type: 'heading';
   level: 2 | 3;
   title: string;
 }
 
-export interface CalloutBlock {
-  id: string;
+export interface CalloutBlock extends MarkdownBlockBase {
   type: 'callout';
   tone: 'info' | 'tip' | 'warning';
   title: string;
-  body: string;
+  body: InlineNode[];
 }
 
-export interface FormulaBlock {
-  id: string;
+export interface ListBlock extends MarkdownBlockBase {
+  type: 'list';
+  ordered: boolean;
+  start?: number;
+  items: InlineNode[][];
+}
+
+export interface QuoteBlock extends MarkdownBlockBase {
+  type: 'quote';
+  children: InlineNode[][];
+}
+
+export interface TableBlock extends MarkdownBlockBase {
+  type: 'table';
+  align: Array<'left' | 'center' | 'right' | null>;
+  header: InlineNode[][];
+  rows: InlineNode[][][];
+}
+
+export interface FormulaBlock extends MarkdownBlockBase {
   type: 'formula';
   expression: string;
-  caption: string;
+  displayMode: boolean;
+  caption?: string;
 }
 
-export interface CodeBlock {
-  id: string;
+export interface CodeRuntimeCapability {
+  id: 'javascript';
+  label: string;
+  entry: string;
+}
+
+export interface CodeBlock extends MarkdownBlockBase {
   type: 'code';
   language: string;
   code: string;
-  caption: string;
+  caption?: string;
+  runtime?: CodeRuntimeCapability;
 }
 
-export interface SandboxBlock {
-  id: string;
-  type: 'sandbox';
-  title: string;
-  description: string;
-  language: 'javascript';
-  entry: string;
-  starterCode: string;
+export interface MermaidBlock extends MarkdownBlockBase {
+  type: 'mermaid';
+  code: string;
+}
+
+export interface HtmlBlock extends MarkdownBlockBase {
+  type: 'html';
+  html: string;
+}
+
+export interface UnsupportedBlock extends MarkdownBlockBase {
+  type: 'unsupported';
+  reason: string;
+}
+
+export interface DividerBlock extends MarkdownBlockBase {
+  type: 'divider';
 }
 
 export type ContentBlock =
   | HeadingBlock
   | ProseBlock
   | CalloutBlock
+  | ListBlock
+  | QuoteBlock
+  | TableBlock
   | FormulaBlock
   | CodeBlock
-  | SandboxBlock;
+  | MermaidBlock
+  | HtmlBlock
+  | UnsupportedBlock
+  | DividerBlock;
+
+export interface ParseWarning {
+  rule: string;
+  message: string;
+  range: SourceRange;
+}
+
+export interface ParseSectionResult {
+  blocks: ContentBlock[];
+  warnings: ParseWarning[];
+}
 
 export interface TextbookSection {
   id: string;
@@ -86,7 +163,7 @@ export interface TextbookSection {
   kind: SectionKind;
   objectives: string[];
   knowledgePoints: string[];
-  blocks: ContentBlock[];
+  markdown: string;
 }
 
 export interface TextbookChapter {

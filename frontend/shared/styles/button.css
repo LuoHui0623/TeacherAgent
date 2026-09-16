@@ -63,6 +63,38 @@
   color: var(--accent-bright);
 }
 
+/* Floating command button: no border until keyboard focus */
+.button--floating {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-secondary);
+  box-shadow: none;
+}
+
+.button--floating:hover:not(:disabled) {
+  border-color: transparent;
+  background: transparent;
+  color: inherit;
+  transform: none;
+  box-shadow: none;
+}
+
+.button--floating:focus-visible {
+  border-color: transparent;
+  background: var(--surface-strong);
+  color: var(--accent-bright);
+  outline: none;
+  box-shadow: none;
+}
+
+.button--floating:focus {
+  border-color: transparent;
+  background: var(--surface-strong);
+  color: var(--accent-bright);
+  outline: none;
+  box-shadow: none;
+}
+
 /* Icon ghost */
 .button--icon-ghost,
 .icon-button {
@@ -80,13 +112,18 @@
 }
 
 .button--icon-ghost:hover:not(:disabled),
-.button--icon-ghost:focus-visible,
-.icon-button:not(:disabled):hover,
-.icon-button:focus-visible {
+.icon-button:not(:disabled):hover {
   border-color: transparent;
   background: var(--surface-hover);
   color: var(--accent-bright);
   transform: translateY(-1px);
+}
+
+.button--icon-ghost:focus-visible,
+.icon-button:focus-visible {
+  border-color: transparent;
+  background: transparent;
+  color: var(--accent-bright);
 }
 
 .icon-button:disabled {
@@ -120,7 +157,7 @@
 
 /* Secondary / general button */
 .button--secondary {
-  border-color: var(--border);
+  border-color: transparent;
   background: transparent;
   color: var(--ink-secondary);
   box-shadow: none;
@@ -128,10 +165,11 @@
 
 .button--secondary:hover:not(:disabled),
 .button--secondary:focus-visible {
-  border-color: var(--accent-bright);
+  border-color: transparent;
   background: var(--surface-hover);
   color: var(--accent-bright);
   box-shadow: none;
+  transform: none;
 }
 
 /* Semantic accents */

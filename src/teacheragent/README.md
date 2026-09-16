@@ -8,24 +8,27 @@ Python 3.13 + uv（src 布局）。技术栈：FastAPI、LangChain（LLM client/
 | 目录 | 职责 |
 |---|---|
 | `api/` | HTTP 接口层：路由与请求/响应模型；启动时经 lifespan 执行迁移 |
-| `services/` | 业务编排层：LangGraph 工作流定义；`llm/` 只保留角色 Agent 装配物 |
-| `capabilities/` | Agent 原子能力：`llm/` 内按能力域目录组织，`invoke.py` / `call_logger.py` / `prompts.py` / `settings.py` |
-| `store/` | 持久化：`connection.py` 连接池、`sqlite/`（`migrations.py`、`tables/` 表行契约、`repositories/` 仓储、`scripts/` DDL） |
+| `services/` | 业务编排入口：LangGraph 工作流定义；`llm/` 只保留角色 Agent 装配物 |
+| `workflows/` | 编排层：复用 capabilities（或加临时 / 手动节点）用 LangGraph 编排好的具体实现；自带流水线级提示词 |
+| `capabilities/` | Agent 原子能力：按能力域目录组织（输入 → 输出），每域含 `README.md`（职责）与 `prompts/`（角色设定） |
+| `infrastructure/` | 基建层：`llm/`（客户端、调用日志、模型目录、Profile、settings、提示词加载）+ `store/`（连接池、迁移、行契约、仓储、DDL） |
+| `shared/` | 纯工具层：无状态、无持久化依赖 |
 | `config/` | 纯配置：`paths.py` 路径、`env.py` 配置项读取、`llm.yaml` 固化配置、`llm.py` 配置契约；**不访问 store** |
 | `constants/` | 通用常量与枚举（教材生命周期状态、Agent 角色名）；不提供提示词 |
-| `prompts/` | 提示词资产：Markdown 文件，由 git 管理，不入库 |
-| `shared/` | 共享工具 |
-| `docs/` | 领域文档 |
+| `docs/` | 领域文档与规范：画像设计、提示词资产规范 |
 | `tests/` | 测试 |
 
 ## 依赖规则
 
-- 单向依赖：`api → services → capabilities / store`；`capabilities` 依赖 `config / constants / shared`，且经 store 仓储接口访问存储是唯一例外
-- LLM 调用统一走 `capabilities.llm.invoke_llm`，业务代码零日志代码
-- `config` 层为纯配置，不得依赖 `store`（由 `tests/test_layering.py` 强制）
+- 分层单向依赖：`api → services → workflows → capabilities → infrastructure`
+- `infrastructure` 是基建层：可依赖 `config / constants / shared`，**不得依赖** `capabilities / workflows / services / api`
+- `shared` 是**纯工具层**：无状态、无持久化依赖，不得依赖 `infrastructure` 及以上任何层
+- SQL / 图数据库驱动只允许出现在 `infrastructure/store/` 内
+- 以上三条由 `tests/test_layering.py` 强制
+- LLM 调用统一走 `infrastructure.llm.invoke_llm`，业务代码零日志代码
+- `config` 层为纯配置，不得依赖 `store`
 - 包内 `__init__.py` 只做汇总导出，不承载定义
 - LLM settings 每次调用现读现用，模型与 temperature 热更新即刻生效
-
 ## 存储契约
 
 `scripts/*.sql` 的 DDL 是表结构**唯一权威**；`tables/*.py` 的行契约（`TypedDict`）

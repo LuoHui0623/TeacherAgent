@@ -1,11 +1,21 @@
 export function domId(
   domain: string,
-  purpose: string,
+  component: string,
+  actionOrKey?: string | number,
   key?: string | number,
 ): string {
-  const parts = [domain, purpose, key === undefined ? undefined : String(key)]
-    .filter((part): part is string => Boolean(part))
-    .map(_slug);
+  const parts = [
+    domain,
+    component,
+    ...(key === undefined
+      ? [actionOrKey]
+      : [actionOrKey, key]),
+  ]
+    .filter(
+      (part) =>
+        part !== undefined && part !== null && String(part).trim().length > 0,
+    )
+    .map((part) => _slug(String(part)));
   return parts.filter(Boolean).join('-') || 'ui-element';
 }
 

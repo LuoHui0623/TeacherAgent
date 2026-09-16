@@ -3,10 +3,10 @@
 import pytest
 
 from teacheragent.constants import AgentRole
-from teacheragent.capabilities.llm.invoke import invoke_llm
-from teacheragent.shared import llm_client
-from teacheragent.store import repositories
-from teacheragent.store.sqlite.tables.call_logs import CallLogRow
+from teacheragent.infrastructure.llm.invoke import invoke_llm
+from teacheragent.infrastructure.llm import client
+from teacheragent.infrastructure.store import repositories
+from teacheragent.infrastructure.store.sqlite.tables.call_logs import CallLogRow
 
 
 class _FakeResponse:
@@ -26,12 +26,12 @@ def _latest() -> CallLogRow:
 
 
 def test_success_writes_log_with_usage(monkeypatch):
-    monkeypatch.setattr(llm_client, "build_client", lambda _settings: _FakeClient())
+    monkeypatch.setattr(client, "build_client", lambda _settings: _FakeClient())
 
     response = invoke_llm(
         AgentRole.TEACHER,
         [{"role": "user", "content": "hi"}],
-        prompt_ref="prompts/teacher.md",
+        prompt_ref="capabilities/tutoring/prompts/teacher.md",
     )
 
     assert response.content == "fake-answer"
@@ -40,14 +40,14 @@ def test_success_writes_log_with_usage(monkeypatch):
     assert log["role"] == "teacher"
     assert log["total_tokens"] == 3
     assert log["output_text"] == "fake-answer"
-    assert log["prompt_ref"] == "prompts/teacher.md"
+    assert log["prompt_ref"] == "capabilities/tutoring/prompts/teacher.md"
 
 
 def test_client_build_failure_is_logged_and_reraised(monkeypatch):
     def _boom(_settings):
         raise RuntimeError("missing api key")
 
-    monkeypatch.setattr(llm_client, "build_client", _boom)
+    monkeypatch.setattr(client, "build_client", _boom)
 
     with pytest.raises(RuntimeError, match="missing api key"):
         invoke_llm(AgentRole.TEACHER, [{"role": "user", "content": "hi"}])
@@ -65,7 +65,7 @@ def test_settings_are_read_on_every_call(monkeypatch):
         seen.append(settings["temperature"])
         return _FakeClient()
 
-    monkeypatch.setattr(llm_client, "build_client", _capture)
+    monkeypatch.setattr(client, "build_client", _capture)
 
     invoke_llm(AgentRole.TEACHER, [{"role": "user", "content": "a"}])
     repositories.llm_profiles.upsert_profile(

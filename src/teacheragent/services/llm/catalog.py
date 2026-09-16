@@ -1,6 +1,6 @@
 """模型目录服务编排：供 API 层调用运行时刷新与查询。"""
 
-from teacheragent.capabilities.llm import catalog
+from teacheragent.infrastructure.llm import catalog
 
 
 def list_models() -> tuple[str, ...]:

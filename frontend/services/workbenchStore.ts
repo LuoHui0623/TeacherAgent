@@ -5,6 +5,7 @@ export type ModuleKey =
   | 'knowledge-map'
   | 'bookshelf'
   | 'learning-zone'
+  | 'content-pipeline'
   | 'notes'
   | 'profile'
   | 'settings';

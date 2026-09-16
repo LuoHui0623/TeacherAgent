@@ -3,6 +3,7 @@ import { AppShell } from '../shared/AppShell';
 import { useWorkbenchStore } from '../services/workbenchStore';
 import { KnowledgeMapModule } from '../modules/knowledge-map/KnowledgeMapModule';
 import { BookshelfModule } from '../modules/bookshelf/BookshelfModule';
+import { ContentPipelineModule } from '../modules/content-pipeline/ContentPipelineModule';
 import { LearningZoneModule } from '../modules/learning-zone/LearningZoneModule';
 import { NotesModule } from '../modules/notes/NotesModule';
 import { SettingsModule } from '../modules/settings/SettingsModule';
@@ -27,6 +28,8 @@ function MainArea() {
       return <BookshelfModule />;
     case 'learning-zone':
       return <LearningZoneModule />;
+    case 'content-pipeline':
+      return <ContentPipelineModule />;
     case 'notes':
       return <NotesModule />;
     case 'profile':

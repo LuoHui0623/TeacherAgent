@@ -1,5 +1,3 @@
-"""跨层共享基建。"""
+"""纯工具层：无状态、无持久化依赖的共享工具。"""
 
-from . import llm_client
-
-__all__ = ["llm_client"]
+__all__: list[str] = []

@@ -1,6 +1,6 @@
 """角色 Agent 的装配基类。"""
 
-from teacheragent.capabilities.llm.invoke import invoke_llm
+from teacheragent.infrastructure.llm.invoke import invoke_llm
 from teacheragent.constants import AgentRole
 
 

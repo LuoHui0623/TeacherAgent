@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from teacheragent.api.routes import llm
-from teacheragent.store import migrate
+from teacheragent.infrastructure.store import migrate
 from teacheragent.services.llm import catalog, profiles
 from teacheragent.config import env
 

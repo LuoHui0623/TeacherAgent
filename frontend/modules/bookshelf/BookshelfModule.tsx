@@ -2,7 +2,7 @@ import { BookOpenIcon, BooksIcon, ClockIcon } from '@phosphor-icons/react';
 import type { CSSProperties } from 'react';
 
 import { useWorkbenchStore } from '../../services/workbenchStore';
-import { textbookCatalog } from '../mocks/textbooks';
+import { textbookCatalog } from '../../mocks/textbooks';
 import type { BookStatus, TextbookSummary } from '../../services/textbook/types';
 import { domId } from '../../shared/ids';
 import './BookshelfModule.css';
@@ -39,7 +39,7 @@ function BookCard({ book, index }: { book: TextbookSummary; index: number }) {
   return (
     <button
       type="button"
-      id={domId('bookshelf', 'open-textbook', book.id)}
+      id={domId('bookshelf', 'textbook', 'open', book.id)}
       className="book-card"
       style={style}
       onClick={() => openTextbook(book.id)}

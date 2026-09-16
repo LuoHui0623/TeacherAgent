@@ -2,11 +2,11 @@
 
 import pytest
 
-from teacheragent.capabilities.llm import catalog
-from teacheragent.capabilities.llm import profiles as profile_capability
-from teacheragent.capabilities.llm.settings import get_settings
+from teacheragent.infrastructure.llm import catalog
+from teacheragent.infrastructure.llm import profiles as profile_capability
+from teacheragent.infrastructure.llm.settings import get_settings
 from teacheragent.constants import AgentRole
-from teacheragent.store import repositories
+from teacheragent.infrastructure.store import repositories
 
 
 @pytest.fixture(autouse=True)

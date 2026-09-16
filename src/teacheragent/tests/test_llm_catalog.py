@@ -2,8 +2,8 @@
 
 import pytest
 
-from teacheragent.capabilities.llm import catalog
-from teacheragent.store import repositories
+from teacheragent.infrastructure.llm import catalog
+from teacheragent.infrastructure.store import repositories
 
 
 @pytest.fixture(autouse=True)

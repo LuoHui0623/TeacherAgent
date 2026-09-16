@@ -3,8 +3,8 @@
 import pytest
 
 from teacheragent.config import paths
-from teacheragent.store.connection import close_sqlite_pool
-from teacheragent.store.sqlite import migrations
+from teacheragent.infrastructure.store.connection import close_sqlite_pool
+from teacheragent.infrastructure.store.sqlite import migrations
 
 
 @pytest.fixture(autouse=True)

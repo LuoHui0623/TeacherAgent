@@ -7,6 +7,7 @@ export interface ToastItem {
   title: string;
   description?: string;
   variant: ToastVariant;
+  leaving?: boolean;
 }
 
 interface ToastState {
@@ -16,8 +17,9 @@ interface ToastState {
 }
 
 let toastId = 0;
+const toastExitDuration = 180;
 
-export const useToastStore = create<ToastState>((set) => ({
+export const useToastStore = create<ToastState>((set, get) => ({
   items: [],
   push: (item) => {
     const id = ++toastId;
@@ -27,8 +29,21 @@ export const useToastStore = create<ToastState>((set) => ({
     }, 4200);
     return id;
   },
-  dismiss: (id) =>
-    set((state) => ({ items: state.items.filter((item) => item.id !== id) })),
+  dismiss: (id) => {
+    const item = get().items.find((current) => current.id === id);
+    if (!item || item.leaving) return;
+
+    set((state) => ({
+      items: state.items.map((current) =>
+        current.id === id ? { ...current, leaving: true } : current,
+      ),
+    }));
+    window.setTimeout(() => {
+      set((state) => ({
+        items: state.items.filter((current) => current.id !== id),
+      }));
+    }, toastExitDuration);
+  },
 }));
 
 export function toast(

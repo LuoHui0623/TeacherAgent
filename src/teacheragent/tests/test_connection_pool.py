@@ -2,7 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 
-from teacheragent.store.connection import _thread_pool, close_sqlite_pool, connection
+from teacheragent.infrastructure.store.connection import _thread_pool, close_sqlite_pool, connection
 
 
 def test_connection_is_returned_to_pool():

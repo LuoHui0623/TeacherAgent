@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from teacheragent.constants import AgentRole
 from teacheragent.services import llm
-from teacheragent.shared import llm_client
+from teacheragent.infrastructure.llm import client
 
 
 router = APIRouter(prefix="/llm")
@@ -146,7 +146,7 @@ def invoke(request: LlmInvokeRequest) -> dict:
     try:
         response = agent.invoke([message.model_dump() for message in request.messages])
     except Exception as exc:
-        error = llm_client.describe_error(exc)
+        error = client.describe_error(exc)
         raise HTTPException(status_code=502, detail=error) from exc
     return {
         "role": str(request.role),

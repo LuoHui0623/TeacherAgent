@@ -6,9 +6,14 @@
 
 import pytest
 
-from teacheragent.store.sqlite import migrations, tables
+from teacheragent.infrastructure.store.sqlite import migrations, tables
 
-CONTRACTS = (tables.llm_settings, tables.llm_profiles, tables.call_logs)
+CONTRACTS = (
+    tables.llm_settings,
+    tables.llm_profiles,
+    tables.call_logs,
+    tables.user_profiles,
+)
 
 
 def _ddl_columns(table_name: str) -> tuple[str, ...]:

@@ -1,7 +1,8 @@
 import {
   BooksIcon,
-  CaretDoubleLeftIcon,
-  CaretDoubleRightIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+  FlowArrowIcon,
   GraduationCapIcon,
   GraphIcon,
   NoteBlankIcon,
@@ -12,11 +13,13 @@ import {
 import { messages } from '../constants';
 import { useWorkbenchStore, type ModuleKey } from '../services/workbenchStore';
 import { domId } from './ids';
+import { Button } from './ui/Button';
 
 const items: { key: ModuleKey; label: string; icon: typeof GraphIcon }[] = [
   { key: 'knowledge-map', label: messages.nav.knowledgeMap, icon: GraphIcon },
   { key: 'bookshelf', label: messages.nav.bookshelf, icon: BooksIcon },
   { key: 'learning-zone', label: messages.nav.learningZone, icon: GraduationCapIcon },
+  { key: 'content-pipeline', label: messages.nav.contentPipeline, icon: FlowArrowIcon },
   { key: 'notes', label: messages.nav.notes, icon: NoteBlankIcon },
   { key: 'profile', label: messages.nav.profile, icon: UserCircleIcon },
   { key: 'settings', label: messages.nav.settings, icon: UserFocusIcon },
@@ -35,10 +38,11 @@ export function SideNav() {
           const active = key === activeModule;
           return (
             <li key={key}>
-              <button
+              <Button
                 type="button"
                 id={domId('shell', 'nav', key)}
                 onClick={() => setActive(key)}
+                variant="secondary"
                 className={`side-nav__item ${active ? 'is-active' : ''}`}
                 title={collapsed ? label : undefined}
                 aria-label={label}
@@ -48,7 +52,7 @@ export function SideNav() {
                   <Icon size={19} weight={active ? 'fill' : 'regular'} />
                 </span>
                 <span className="side-nav__label">{label}</span>
-              </button>
+              </Button>
             </li>
           );
         })}
@@ -64,9 +68,9 @@ export function SideNav() {
         onClick={toggleSidebar}
       >
         {collapsed ? (
-          <CaretDoubleRightIcon size={14} weight="bold" />
+          <CaretRightIcon size={15} weight="bold" />
         ) : (
-          <CaretDoubleLeftIcon size={14} weight="bold" />
+          <CaretLeftIcon size={15} weight="bold" />
         )}
       </button>
     </nav>
