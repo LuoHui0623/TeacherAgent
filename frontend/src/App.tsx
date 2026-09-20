@@ -7,7 +7,7 @@ import { ContentPipelineModule } from '../modules/content-pipeline/ContentPipeli
 import { LearningZoneModule } from '../modules/learning-zone/LearningZoneModule';
 import { NotesModule } from '../modules/notes/NotesModule';
 import { SettingsModule } from '../modules/settings/SettingsModule';
-import { ModulePlaceholder } from '../shared/ModulePlaceholder';
+import { WorkbenchModule } from '../modules/workbench/WorkbenchModule';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,6 +22,8 @@ const queryClient = new QueryClient({
 function MainArea() {
   const activeModule = useWorkbenchStore((s) => s.activeModule);
   switch (activeModule) {
+    case 'workbench':
+      return <WorkbenchModule />;
     case 'knowledge-map':
       return <KnowledgeMapModule />;
     case 'bookshelf':
@@ -32,8 +34,6 @@ function MainArea() {
       return <ContentPipelineModule />;
     case 'notes':
       return <NotesModule />;
-    case 'profile':
-      return <ModulePlaceholder title="用户画像" description="用户画像域保留中。" />;
     case 'settings':
       return <SettingsModule />;
   }

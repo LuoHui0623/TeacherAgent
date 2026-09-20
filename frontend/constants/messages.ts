@@ -5,12 +5,12 @@ export const messages = {
     subtitle: 'AI 教材学习工作台',
   },
   nav: {
+    workbench: '工作台',
     knowledgeMap: '知识地图',
     bookshelf: '教材书架',
     learningZone: '学习区',
     contentPipeline: '教材生产线',
     notes: '笔记区',
-    profile: '用户画像',
     settings: '设置',
   },
   tutor: {

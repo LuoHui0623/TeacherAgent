@@ -2,12 +2,12 @@
 import { create } from 'zustand';
 
 export type ModuleKey =
+  | 'workbench'
   | 'knowledge-map'
   | 'bookshelf'
   | 'learning-zone'
   | 'content-pipeline'
   | 'notes'
-  | 'profile'
   | 'settings';
 
 interface WorkbenchState {

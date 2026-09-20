@@ -2,12 +2,12 @@ import { messages } from '../constants';
 import { useWorkbenchStore } from '../services/workbenchStore';
 
 const moduleLabels = {
+  workbench: messages.nav.workbench,
   'knowledge-map': messages.nav.knowledgeMap,
   bookshelf: messages.nav.bookshelf,
   'learning-zone': messages.nav.learningZone,
   'content-pipeline': messages.nav.contentPipeline,
   notes: messages.nav.notes,
-  profile: messages.nav.profile,
   settings: messages.nav.settings,
 } as const;
 

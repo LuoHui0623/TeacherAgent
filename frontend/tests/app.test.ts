@@ -3,6 +3,8 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { messages } from '../constants/messages';
+import { settingsMenuItems } from '../modules/settings/settingsMenu';
+import { sideNavItems } from '../shared/sideNavItems';
 import { agentRoles } from '../services/settings/agentProfileService';
 import { useWorkbenchStore } from '../services/workbenchStore';
 
@@ -12,13 +14,17 @@ describe('frontend smoke', () => {
   });
 
   it('exposes the agent role list', () => {
-    expect(agentRoles).toEqual(['teacher', 'curriculum', 'knowledge_map']);
+    expect(agentRoles).toEqual(['tutor', 'curriculum']);
   });
 
-  it('keeps user profile and settings navigation distinct', () => {
-    expect(messages.nav.profile).not.toBe(messages.nav.settings);
-    expect(messages.nav.profile).toBe('用户画像');
-    expect(messages.nav.settings).toBe('设置');
+  it('moves user profile out of primary navigation and into Settings', () => {
+    expect('profile' in messages.nav).toBe(false);
+    expect(sideNavItems.some((item) => item.key === 'profile')).toBe(false);
+    expect(settingsMenuItems.map((item) => item.label)).toEqual([
+      '模型配置',
+      '用户画像',
+      '个性化美化',
+    ]);
   });
 
   it('keeps module styles colocated outside the global stylesheet', () => {
@@ -70,3 +76,4 @@ function _walkTsx(root: string): string[] {
     return path.endsWith('.tsx') ? [path] : [];
   });
 }
+

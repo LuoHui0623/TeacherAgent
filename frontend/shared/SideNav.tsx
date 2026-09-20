@@ -1,29 +1,9 @@
-import {
-  BooksIcon,
-  CaretLeftIcon,
-  CaretRightIcon,
-  FlowArrowIcon,
-  GraduationCapIcon,
-  GraphIcon,
-  NoteBlankIcon,
-  UserCircleIcon,
-  UserFocusIcon,
-} from '@phosphor-icons/react';
+import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react';
 
-import { messages } from '../constants';
-import { useWorkbenchStore, type ModuleKey } from '../services/workbenchStore';
+import { useWorkbenchStore } from '../services/workbenchStore';
 import { domId } from './ids';
+import { sideNavItems } from './sideNavItems';
 import { Button } from './ui/Button';
-
-const items: { key: ModuleKey; label: string; icon: typeof GraphIcon }[] = [
-  { key: 'knowledge-map', label: messages.nav.knowledgeMap, icon: GraphIcon },
-  { key: 'bookshelf', label: messages.nav.bookshelf, icon: BooksIcon },
-  { key: 'learning-zone', label: messages.nav.learningZone, icon: GraduationCapIcon },
-  { key: 'content-pipeline', label: messages.nav.contentPipeline, icon: FlowArrowIcon },
-  { key: 'notes', label: messages.nav.notes, icon: NoteBlankIcon },
-  { key: 'profile', label: messages.nav.profile, icon: UserCircleIcon },
-  { key: 'settings', label: messages.nav.settings, icon: UserFocusIcon },
-];
 
 export function SideNav() {
   const activeModule = useWorkbenchStore((state) => state.activeModule);
@@ -34,7 +14,7 @@ export function SideNav() {
   return (
     <nav className={`side-nav ${collapsed ? 'is-collapsed' : ''}`}>
       <ul className="side-nav__items">
-        {items.map(({ key, label, icon: Icon }) => {
+        {sideNavItems.map(({ key, label, icon: Icon }) => {
           const active = key === activeModule;
           return (
             <li key={key}>
