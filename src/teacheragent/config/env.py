@@ -12,15 +12,16 @@ API Key 采用**两级间接**：`.env` 只存「存密钥的环境变量名」�
 
 import os
 
-from .paths import ENV_FILE
+from . import paths
 
 
 def _parse_env_file() -> dict[str, str]:
     """解析 `.env`：跳过空行与 `#` 注释，`KEY=VALUE` 的值可含 `=`。"""
-    if not ENV_FILE.is_file():
+    env_file = paths.ENV_FILE
+    if not env_file.is_file():
         return {}
     values: dict[str, str] = {}
-    for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+    for line in env_file.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue

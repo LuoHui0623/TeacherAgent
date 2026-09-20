@@ -2,14 +2,16 @@
 
 import pytest
 
-from teacheragent.config import env
+from teacheragent.config import env, paths
 
 
 @pytest.fixture
 def dotenv(tmp_path, monkeypatch):
     """把 `.env` 指向临时文件（内容由用例按需写入）。"""
     path = tmp_path / ".env"
-    monkeypatch.setattr(env, "ENV_FILE", path)
+    # 挂载 paths.ENV_FILE：配置位置以 paths 为唯一来源，env 按需读取，
+    # 这样 TEACHERAGENT_ENV_FILE 的运行时覆盖才生效。
+    monkeypatch.setattr(paths, "ENV_FILE", path)
     return path
 
 
@@ -48,7 +50,7 @@ def test_env_file_value_may_contain_equals(dotenv):
 
 
 def test_missing_env_file_is_safe(tmp_path, monkeypatch):
-    monkeypatch.setattr(env, "ENV_FILE", tmp_path / "absent.env")
+    monkeypatch.setattr(paths, "ENV_FILE", tmp_path / "absent.env")
     monkeypatch.delenv("DEFINITELY_NOT_SET", raising=False)
     assert env.get_env("DEFINITELY_NOT_SET") == ""
     assert env.get_base_url() == ""

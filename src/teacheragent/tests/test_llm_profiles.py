@@ -25,8 +25,8 @@ def _load_models(*models: str) -> None:
 def test_profile_fields_are_role_scoped():
     _load_models("kimi-k2.6", "minimax-m3")
 
-    teacher = profile_capability.save_profile(
-        AgentRole.TEACHER,
+    tutor = profile_capability.save_profile(
+        AgentRole.TUTOR,
         "fast",
         model="kimi-k2.6",
         temperature=0.2,
@@ -40,15 +40,15 @@ def test_profile_fields_are_role_scoped():
         create=True,
     )
 
-    assert teacher["role"] == "teacher"
+    assert tutor["role"] == "tutor"
     assert curriculum["role"] == "curriculum"
-    assert profile_capability.list_profiles(AgentRole.TEACHER) != profile_capability.list_profiles(AgentRole.CURRICULUM)
+    assert profile_capability.list_profiles(AgentRole.TUTOR) != profile_capability.list_profiles(AgentRole.CURRICULUM)
 
 
 def test_profile_name_is_unique_within_role():
     _load_models("kimi-k2.6")
     profile_capability.save_profile(
-        AgentRole.TEACHER,
+        AgentRole.TUTOR,
         "fast",
         model="kimi-k2.6",
         temperature=0.2,
@@ -57,7 +57,7 @@ def test_profile_name_is_unique_within_role():
 
     with pytest.raises(ValueError, match="Profile 已存在"):
         profile_capability.save_profile(
-            AgentRole.TEACHER,
+            AgentRole.TUTOR,
             "fast",
             model="kimi-k2.6",
             temperature=0.3,
@@ -70,7 +70,7 @@ def test_profile_model_must_be_in_catalog():
 
     with pytest.raises(ValueError, match="模型不在当前目录中"):
         profile_capability.save_profile(
-            AgentRole.TEACHER,
+            AgentRole.TUTOR,
             "fast",
             model="missing-model",
             temperature=0.2,
@@ -80,7 +80,7 @@ def test_profile_model_must_be_in_catalog():
 def test_active_profile_is_isolated_and_used_on_next_read():
     _load_models("kimi-k2.6", "minimax-m3")
     profile_capability.save_profile(
-        AgentRole.TEACHER,
+        AgentRole.TUTOR,
         "calm",
         model="kimi-k2.6",
         temperature=0.1,
@@ -94,10 +94,10 @@ def test_active_profile_is_isolated_and_used_on_next_read():
         create=True,
     )
 
-    profile_capability.activate_profile(AgentRole.TEACHER, "calm")
+    profile_capability.activate_profile(AgentRole.TUTOR, "calm")
     profile_capability.activate_profile(AgentRole.CURRICULUM, "wild")
 
-    assert get_settings(AgentRole.TEACHER)["temperature"] == 0.1
+    assert get_settings(AgentRole.TUTOR)["temperature"] == 0.1
     assert get_settings(AgentRole.CURRICULUM)["temperature"] == 0.8
 
 
@@ -116,15 +116,17 @@ def test_ensure_default_profiles_uses_configured_model():
 def test_ensure_default_profiles_upgrades_seeded_default_model():
     _load_models("legacy-model", "omen-alpha")
     repositories.llm_profiles.upsert_profile(
-        str(AgentRole.TEACHER),
+        str(AgentRole.TUTOR),
         "default",
         model="legacy-model",
         temperature=0.4,
     )
-    repositories.llm_profiles.activate_profile(str(AgentRole.TEACHER), "default")
+    repositories.llm_profiles.activate_profile(str(AgentRole.TUTOR), "default")
 
     profile_capability.ensure_default_profiles()
 
-    active = repositories.llm_profiles.get_active(str(AgentRole.TEACHER))
+    active = repositories.llm_profiles.get_active(str(AgentRole.TUTOR))
     assert active is not None
     assert active["model"] == "omen-alpha"
+
+

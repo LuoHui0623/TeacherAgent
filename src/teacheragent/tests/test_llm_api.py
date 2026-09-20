@@ -88,18 +88,18 @@ def test_model_refresh_failure_keeps_previous_catalog(api, monkeypatch):
 
 def test_profile_create_list_update_activate_and_delete(api):
     created = api.post(
-        "/llm/roles/teacher/profiles",
+        "/llm/roles/tutor/profiles",
         json={"profile_id": "fast", "model": "model-a", "temperature": 0.2},
     )
     assert created.status_code == 200
     assert created.json()["profile_id"] == "fast"
 
-    activated = api.post("/llm/roles/teacher/profiles/fast/activate")
+    activated = api.post("/llm/roles/tutor/profiles/fast/activate")
     assert activated.status_code == 200
     assert activated.json()["active"] == 1
 
     updated = api.put(
-        "/llm/roles/teacher/profiles/fast",
+        "/llm/roles/tutor/profiles/fast",
         json={"model": "model-b", "temperature": 0.4},
     )
     assert updated.status_code == 200
@@ -107,22 +107,22 @@ def test_profile_create_list_update_activate_and_delete(api):
     assert updated.json()["temperature"] == 0.4
     assert updated.json()["active"] == 1
 
-    roles = api.get("/llm/roles/teacher/profiles").json()
+    roles = api.get("/llm/roles/tutor/profiles").json()
     profile = next(item for item in roles["profiles"] if item["profile_id"] == "fast")
     assert profile["valid"] == 1
 
-    deleted = api.delete("/llm/roles/teacher/profiles/fast")
+    deleted = api.delete("/llm/roles/tutor/profiles/fast")
     assert deleted.status_code == 400
 
 
 def test_duplicate_profile_is_rejected(api):
     api.post(
-        "/llm/roles/teacher/profiles",
+        "/llm/roles/tutor/profiles",
         json={"profile_id": "fast", "model": "model-a", "temperature": 0.2},
     )
 
     response = api.post(
-        "/llm/roles/teacher/profiles",
+        "/llm/roles/tutor/profiles",
         json={"profile_id": "fast", "model": "model-b", "temperature": 0.3},
     )
 
@@ -132,7 +132,7 @@ def test_duplicate_profile_is_rejected(api):
 
 def test_unknown_model_or_role_is_rejected(api):
     unknown_model = api.post(
-        "/llm/roles/teacher/profiles",
+        "/llm/roles/tutor/profiles",
         json={"profile_id": "broken", "model": "missing", "temperature": 0.2},
     )
     unknown_role = api.post(
@@ -148,17 +148,17 @@ def test_unknown_model_or_role_is_rejected(api):
 
 def test_profiles_are_isolated_by_role_and_active_is_immediate(api):
     api.post(
-        "/llm/roles/teacher/profiles",
+        "/llm/roles/tutor/profiles",
         json={"profile_id": "fast", "model": "model-a", "temperature": 0.1},
     )
     api.post(
         "/llm/roles/curriculum/profiles",
         json={"profile_id": "fast", "model": "model-b", "temperature": 0.9},
     )
-    api.post("/llm/roles/teacher/profiles/fast/activate")
+    api.post("/llm/roles/tutor/profiles/fast/activate")
     api.post("/llm/roles/curriculum/profiles/fast/activate")
 
-    assert settings.get_settings("teacher")["temperature"] == 0.1
+    assert settings.get_settings("tutor")["temperature"] == 0.1
     assert settings.get_settings("curriculum")["temperature"] == 0.9
 
 
@@ -176,9 +176,10 @@ def test_invoke_endpoint_uses_requested_role(api, monkeypatch):
 
     response = api.post(
         "/llm/invoke",
-        json={"role": "teacher", "messages": [{"role": "user", "content": "ping"}]},
+        json={"role": "tutor", "messages": [{"role": "user", "content": "ping"}]},
     )
 
     assert response.status_code == 200
-    assert response.json() == {"role": "teacher", "content": "pong"}
-    assert captured == ["teacher"]
+    assert response.json() == {"role": "tutor", "content": "pong"}
+    assert captured == ["tutor"]
+

@@ -1,5 +1,6 @@
 """TeacherAgent 开发启动：后端 FastAPI(uvicorn) + 前端 Vite dev。"""
 
+import os
 import subprocess
 import sys
 import threading
@@ -10,6 +11,7 @@ from typing import TextIO
 
 ROOT = Path(__file__).parent.parent
 FRONTEND = ROOT / "frontend"
+BACKEND_PORT = int(os.environ.get("TEACHERAGENT_PORT", "8000"))
 BACKEND_LOG_DIR = ROOT / "logs" / "backend"
 FRONTEND_LOG_DIR = ROOT / "logs" / "frontend"
 
@@ -20,7 +22,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 def _start_backend() -> subprocess.Popen[str]:
-    """启动后端 API（uvicorn，端口 8000）。"""
+    """启动后端 API（uvicorn，端口由 TEACHERAGENT_PORT 决定，默认 8000）。"""
     return subprocess.Popen(
         [
             sys.executable,
@@ -29,7 +31,7 @@ def _start_backend() -> subprocess.Popen[str]:
             "teacheragent.api.main:app",
             "--reload",
             "--port",
-            "8000",
+            str(BACKEND_PORT),
         ],
         cwd=ROOT,
         stdout=subprocess.PIPE,
@@ -82,7 +84,7 @@ def _start_drain(
 
 
 def main() -> None:
-    print("启动后端: http://localhost:8000")
+    print(f"启动后端: http://localhost:{BACKEND_PORT}")
     backend = _start_backend()
     _start_drain(backend, "backend stdout", BACKEND_LOG_DIR / "out.log")
     _start_drain(backend, "backend stderr", BACKEND_LOG_DIR / "err.log")

@@ -6,6 +6,10 @@ dist/
 wheels/
 *.egg-info
 
+# 测试缓存与临时目录
+.pytest_cache/
+.pytest_tmp/
+
 # Virtual environments
 .venv
 
@@ -27,3 +31,6 @@ logs/frontend/*
 
 # 
 Task*.md
+
+# 测试临时目录（pytest --basetemp）
+.pytest_tmp/

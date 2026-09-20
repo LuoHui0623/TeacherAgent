@@ -9,7 +9,7 @@ def test_default_temperature_is_read_from_yaml():
 
 def test_default_model_is_read_from_yaml():
     assert llm.default_option().model == "omen-alpha"
-    assert llm.role_default_option("teacher").model == "omen-alpha"
+    assert llm.role_default_option("tutor").model == "omen-alpha"
 
 
 def test_model_options_are_read_from_yaml():
@@ -17,3 +17,4 @@ def test_model_options_are_read_from_yaml():
     assert len(options) == 4
     assert options[0]["is_default"] is True
     assert options[0]["model"] == "omen-alpha"
+

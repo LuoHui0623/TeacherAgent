@@ -68,13 +68,13 @@ def test_refresh_reports_added_and_removed_models():
 
 def test_refresh_syncs_profile_validity():
     repositories.llm_profiles.upsert_profile(
-        "teacher",
+        "tutor",
         "old",
         model="removed-model",
         temperature=0.2,
     )
     repositories.llm_profiles.upsert_profile(
-        "teacher",
+        "tutor",
         "current",
         model="kept-model",
         temperature=0.3,
@@ -85,5 +85,6 @@ def test_refresh_syncs_profile_validity():
     )
 
     assert result["ok"] is True
-    assert repositories.llm_profiles.get_profile("teacher", "old")["valid"] == 0
-    assert repositories.llm_profiles.get_profile("teacher", "current")["valid"] == 1
+    assert repositories.llm_profiles.get_profile("tutor", "old")["valid"] == 0
+    assert repositories.llm_profiles.get_profile("tutor", "current")["valid"] == 1
+
