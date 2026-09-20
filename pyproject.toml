@@ -13,6 +13,7 @@ dependencies = [
     "langchain-openai>=1.6.2",
     "langgraph>=1.2.11",
     "neo4j>=6.3.0",
+    "pydantic>=2.13.5",
     "pyyaml>=6.0.1",
     "uvicorn[standard]>=0.52.4",
 ]

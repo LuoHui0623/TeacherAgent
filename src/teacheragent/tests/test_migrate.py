@@ -34,7 +34,7 @@ def test_prompts_are_not_stored_in_sql():
     assert "prompt_versions" not in migrations.table_names()
 
 
-def test_call_logs_references_prompt_by_path():
+def test_call_logs_does_not_store_prompt_reference():
     columns = migrations.table_columns("call_logs")
-    assert "prompt_ref" in columns
+    assert "prompt_ref" not in columns
     assert "prompt_version_id" not in columns

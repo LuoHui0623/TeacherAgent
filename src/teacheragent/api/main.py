@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from teacheragent.api.routes import llm
+from teacheragent.api.routes import call_logs, llm, user_profile
 from teacheragent.infrastructure.store import migrate
 from teacheragent.services.llm import catalog, profiles
 from teacheragent.config import env
@@ -37,6 +37,8 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 app.include_router(llm.router)
+app.include_router(call_logs.router)
+app.include_router(user_profile.router)
 
 
 @app.get("/health")
