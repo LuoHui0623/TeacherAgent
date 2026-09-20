@@ -30,13 +30,12 @@ import { domId } from '../../shared/ids';
 import './AgentProfileModule.css';
 
 const roleMeta: Record<AgentRole, { label: string; code: string }> = {
-  teacher: { label: '教师', code: 'teacher' },
+  tutor: { label: 'Tutor', code: 'tutor' },
   curriculum: { label: '课程', code: 'curriculum' },
-  knowledge_map: { label: '知识地图', code: 'knowledge_map' },
 };
 
 export function AgentProfileModule() {
-  const [role, setRole] = useState<AgentRole>('teacher');
+  const [role, setRole] = useState<AgentRole>('tutor');
   const [profileId, setProfileId] = useState('');
   const [model, setModel] = useState('');
   const [temperature, setTemperature] = useState('0.7');
@@ -114,9 +113,9 @@ export function AgentProfileModule() {
     <section className="settings-page">
       <header className="settings-page__header motion-enter">
         <div>
-          <p className="page-kicker">Settings / Agent Profile</p>
-          <h1 className="page-title">Agent Profile</h1>
-          <p className="page-subtitle">按角色管理模型配置与采样温度。</p>
+          <p className="page-kicker">Settings / Model Configuration</p>
+          <h1 className="page-title">模型配置</h1>
+          <p className="page-subtitle">按角色管理模型与采样温度。</p>
         </div>
 
         <div className="settings-page__actions">

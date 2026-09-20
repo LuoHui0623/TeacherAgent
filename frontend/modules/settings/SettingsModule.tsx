@@ -1,34 +1,13 @@
 import { useState } from 'react';
-import { PaletteIcon, SlidersHorizontalIcon } from '@phosphor-icons/react';
 
 import { AgentProfileModule } from './AgentProfileModule';
 import { PersonalizationPanel } from './PersonalizationPanel';
+import { settingsMenuItems, type SettingsPanel } from './settingsMenu';
+import { UserProfilePanel } from './UserProfilePanel';
 import './SettingsModule.css';
 
-type SettingsPanel = 'agent-profile' | 'personalization';
-
-const menuItems: {
-  key: SettingsPanel;
-  label: string;
-  description: string;
-  icon: typeof SlidersHorizontalIcon;
-}[] = [
-  {
-    key: 'agent-profile',
-    label: 'Agent Profile',
-    description: '角色模型与温度',
-    icon: SlidersHorizontalIcon,
-  },
-  {
-    key: 'personalization',
-    label: '个性化美化',
-    description: '色系、字体与字号',
-    icon: PaletteIcon,
-  },
-];
-
 export function SettingsModule() {
-  const [activePanel, setActivePanel] = useState<SettingsPanel>('agent-profile');
+  const [activePanel, setActivePanel] = useState<SettingsPanel>('model-config');
 
   return (
     <section className="settings-workspace">
@@ -38,7 +17,7 @@ export function SettingsModule() {
           <h1>设置</h1>
         </header>
         <nav aria-label="设置菜单">
-          {menuItems.map(({ key, label, description, icon: Icon }) => {
+          {settingsMenuItems.map(({ key, label, description, icon: Icon }) => {
             const selected = key === activePanel;
             return (
               <button
@@ -63,7 +42,9 @@ export function SettingsModule() {
       </aside>
 
       <div className="settings-workspace__content">
-        {activePanel === 'agent-profile' ? <AgentProfileModule /> : <PersonalizationPanel />}
+        {activePanel === 'model-config' && <AgentProfileModule />}
+        {activePanel === 'user-profile' && <UserProfilePanel />}
+        {activePanel === 'personalization' && <PersonalizationPanel />}
       </div>
     </section>
   );

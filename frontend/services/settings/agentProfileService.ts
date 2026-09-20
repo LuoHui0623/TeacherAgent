@@ -8,7 +8,7 @@ import type {
   RoleProfiles,
 } from './types';
 
-export const agentRoles = ['teacher', 'curriculum', 'knowledge_map'] as const;
+export const agentRoles = ['tutor', 'curriculum'] as const;
 export type AgentRole = (typeof agentRoles)[number];
 
 export function listModels(): Promise<ModelCatalog> {
