@@ -16,7 +16,6 @@ class CallRecord:
     provider: str
     model: str
     input_text: str
-    prompt_ref: str | None = None
     output_text: str = ""
     usage: dict = field(default_factory=dict)
 
@@ -25,7 +24,6 @@ class CallRecord:
 def log_llm_call(
     settings: dict,
     input_text: str,
-    prompt_ref: str | None = None,
 ) -> Iterator[CallRecord]:
     """包裹一次 LLM 调用；成功与异常路径均落库，异常照常上抛。"""
     record = CallRecord(
@@ -33,7 +31,6 @@ def log_llm_call(
         provider=settings["provider"],
         model=settings["model"],
         input_text=input_text,
-        prompt_ref=prompt_ref,
     )
     start = time.perf_counter()
     try:
@@ -57,5 +54,4 @@ def _write(record: CallRecord, start: float, *, status: str, error: str = "") ->
         duration_ms=int((time.perf_counter() - start) * 1000),
         status=status,
         error=error,
-        prompt_ref=record.prompt_ref,
     )

@@ -6,15 +6,14 @@ from typing import TypedDict
 class CallLogRow(TypedDict):
     """`call_logs` 行。
 
-    `prompt_ref` 存提示词资产的相对路径（如 `capabilities/tutoring/prompts/teacher.md`）；
-    提示词内容由 git 版本化，不入库。
+    这是 LLM 调用审计记录；提示词模板由提示词资产与 workflow 侧管理，
+    不作为调用日志字段持久化。
     """
 
     id: int
     role: str
     provider: str
     model: str
-    prompt_ref: str | None
     input_text: str
     output_text: str
     prompt_tokens: int

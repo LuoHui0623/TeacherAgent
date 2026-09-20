@@ -12,12 +12,11 @@ from teacheragent.infrastructure.llm import client as llm_client
 def invoke_llm(
     role: AgentRole | str,
     messages: list[dict[str, str]],
-    prompt_ref: str | None = None,
 ) -> Any:
     """带日志落库的同步 LLM 调用。"""
     settings = get_settings(role)
     input_text = json.dumps(messages, ensure_ascii=False)
-    with log_llm_call(settings, input_text, prompt_ref) as record:
+    with log_llm_call(settings, input_text) as record:
         client = llm_client.build_client(settings)
         response = client.invoke(messages)
         record.output_text = str(response.content)

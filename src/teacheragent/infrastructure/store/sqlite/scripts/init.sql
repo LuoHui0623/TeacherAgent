@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS call_logs (
     role TEXT NOT NULL,
     provider TEXT NOT NULL,
     model TEXT NOT NULL,
-    prompt_ref TEXT,
     input_text TEXT NOT NULL,
     output_text TEXT NOT NULL DEFAULT '',
     prompt_tokens INTEGER NOT NULL DEFAULT 0,

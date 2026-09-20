@@ -60,7 +60,8 @@ def _load_scripts() -> list[tuple[str, str]]:
             for script in scripts.iterdir()
             if script.name.endswith(".sql")
         ),
-        key=lambda item: item[0],
+        # init.sql is the base schema; numbered scripts may depend on it.
+        key=lambda item: (item[0] != "init.sql", item[0]),
     )
 
 

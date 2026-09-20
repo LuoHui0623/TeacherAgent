@@ -8,7 +8,7 @@ from teacheragent.infrastructure.store import repositories
 from teacheragent.infrastructure.store.sqlite.tables.call_logs import CallLogRow
 
 SETTINGS = {
-    "role": str(AgentRole.TEACHER),
+    "role": str(AgentRole.TUTOR),
     "provider": "openai",
     "model": "gpt-4o-mini",
     "temperature": 0.7,
@@ -44,18 +44,6 @@ def test_failure_path_writes_error_log_and_reraises():
     assert log["output_text"] == ""
 
 
-def test_prompt_ref_is_recorded():
-    with log_llm_call(SETTINGS, "in", "capabilities/tutoring/prompts/teacher.md"):
-        pass
-    assert _latest()["prompt_ref"] == "capabilities/tutoring/prompts/teacher.md"
-
-
-def test_prompt_ref_defaults_to_none():
-    with log_llm_call(SETTINGS, "in"):
-        pass
-    assert _latest()["prompt_ref"] is None
-
-
 def test_duration_is_recorded():
     with log_llm_call(SETTINGS, "in"):
         pass
@@ -67,3 +55,4 @@ def test_count_by_role():
         with log_llm_call(SETTINGS, "in"):
             pass
     assert repositories.call_logs.count_by_role(SETTINGS["role"]) == 2
+

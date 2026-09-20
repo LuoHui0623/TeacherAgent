@@ -20,7 +20,7 @@ class _FakeClient:
 
 
 def _latest() -> CallLogRow:
-    logs = repositories.call_logs.list_by_role(str(AgentRole.TEACHER))
+    logs = repositories.call_logs.list_by_role(str(AgentRole.TUTOR))
     assert logs, "日志未落库"
     return logs[0]
 
@@ -29,18 +29,17 @@ def test_success_writes_log_with_usage(monkeypatch):
     monkeypatch.setattr(client, "build_client", lambda _settings: _FakeClient())
 
     response = invoke_llm(
-        AgentRole.TEACHER,
+        AgentRole.TUTOR,
         [{"role": "user", "content": "hi"}],
-        prompt_ref="capabilities/tutoring/prompts/teacher.md",
     )
 
     assert response.content == "fake-answer"
     log = _latest()
     assert log["status"] == "ok"
-    assert log["role"] == "teacher"
+    assert log["role"] == "tutor"
     assert log["total_tokens"] == 3
     assert log["output_text"] == "fake-answer"
-    assert log["prompt_ref"] == "capabilities/tutoring/prompts/teacher.md"
+    assert "prompt_ref" not in log
 
 
 def test_client_build_failure_is_logged_and_reraised(monkeypatch):
@@ -50,7 +49,7 @@ def test_client_build_failure_is_logged_and_reraised(monkeypatch):
     monkeypatch.setattr(client, "build_client", _boom)
 
     with pytest.raises(RuntimeError, match="missing api key"):
-        invoke_llm(AgentRole.TEACHER, [{"role": "user", "content": "hi"}])
+        invoke_llm(AgentRole.TUTOR, [{"role": "user", "content": "hi"}])
 
     log = _latest()
     assert log["status"] == "error"
@@ -67,15 +66,16 @@ def test_settings_are_read_on_every_call(monkeypatch):
 
     monkeypatch.setattr(client, "build_client", _capture)
 
-    invoke_llm(AgentRole.TEACHER, [{"role": "user", "content": "a"}])
+    invoke_llm(AgentRole.TUTOR, [{"role": "user", "content": "a"}])
     repositories.llm_profiles.upsert_profile(
-        str(AgentRole.TEACHER),
+        str(AgentRole.TUTOR),
         "updated",
         model="gpt-4o-mini",
         temperature=0.1,
     )
-    repositories.llm_profiles.activate_profile(str(AgentRole.TEACHER), "updated")
-    invoke_llm(AgentRole.TEACHER, [{"role": "user", "content": "b"}])
+    repositories.llm_profiles.activate_profile(str(AgentRole.TUTOR), "updated")
+    invoke_llm(AgentRole.TUTOR, [{"role": "user", "content": "b"}])
 
     assert seen[0] != seen[1]
     assert seen[1] == 0.1
+

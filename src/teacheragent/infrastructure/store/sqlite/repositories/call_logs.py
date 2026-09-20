@@ -16,24 +16,19 @@ def insert_log(
     duration_ms: int = 0,
     status: str = "ok",
     error: str = "",
-    prompt_ref: str | None = None,
 ) -> int:
-    """写入一条调用日志，返回自增 id。
-
-    `prompt_ref` 存提示词资产相对路径（如 `capabilities/tutoring/prompts/teacher.md`）。
-    """
+    """写入一条调用日志，返回自增 id。"""
     tokens = usage or {}
     with connection() as conn:
         cursor = conn.execute(
             f"INSERT INTO {table.TABLE} "
-            "(role, provider, model, prompt_ref, input_text, output_text, "
+            "(role, provider, model, input_text, output_text, "
             "prompt_tokens, completion_tokens, total_tokens, duration_ms, status, error) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 role,
                 provider,
                 model,
-                prompt_ref,
                 input_text,
                 output_text,
                 tokens.get("prompt_tokens", 0),
@@ -52,6 +47,16 @@ def list_by_role(role: str, limit: int = 100) -> list[CallLogRow]:
     return _query(
         f"SELECT * FROM {table.TABLE} WHERE role = ? ORDER BY id DESC LIMIT ?",
         (role, limit),
+    )
+
+
+def list_recent(limit: int = 100) -> list[CallLogRow]:
+    """按发生时间正序列出最近调用，供提示词地图的时间流展示。"""
+    return _query(
+        f"SELECT * FROM ("
+        f"SELECT * FROM {table.TABLE} ORDER BY created_at DESC, id DESC LIMIT ?"
+        f") ORDER BY created_at ASC, id ASC",
+        (limit,),
     )
 
 

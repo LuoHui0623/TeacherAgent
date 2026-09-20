@@ -4,8 +4,7 @@ from enum import StrEnum
 
 
 class AgentRole(StrEnum):
-    """Agent 角色名。"""
+    """系统中可配置、可调用的两类 Agent。"""
 
-    TEACHER = "teacher"
+    TUTOR = "tutor"
     CURRICULUM = "curriculum"
-    KNOWLEDGE_MAP = "knowledge_map"
