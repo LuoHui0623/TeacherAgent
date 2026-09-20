@@ -4,7 +4,7 @@ import { createMockContentAgentRegistry, createMockContentPipelineRuntime } from
 import { mainWorkflowVersion } from '../mocks/content-pipeline/main-workflow';
 import {
   contentPipelineArtifactTypes,
-  type CourseBlueprintPayload,
+  type OutlinePayload,
   type LearningBriefPayload,
   type PublicationManifestPayload,
 } from '../services/content-pipeline/contracts';
@@ -14,41 +14,30 @@ import type { JsonValue } from '../services/content-pipeline/types';
 const learningBriefPayload: LearningBriefPayload = {
   id: 'brief-test',
   goal: '掌握前端性能优化',
-  intent: '系统学习',
-  learnerSummary: '具备 React 基础',
+  approach: 'systematic',
   scope: {
-    level: 'intermediate',
-    depth: 'systematic',
-    breadth: 'frontend-performance',
+    targetLevel: '进阶',
+    inScope: ['性能指标与测量'],
+    outOfScope: [],
     estimatedMinutes: 480,
   },
-  expectedOutcomes: ['能定位性能瓶颈'],
+  expectedOutcomes: [{ id: 'diagnose', statement: '能定位性能瓶颈' }],
   constraints: [],
   questions: [],
 };
 
-const courseBlueprintPayload: CourseBlueprintPayload = {
+const outlinePayload: OutlinePayload = {
   id: 'blueprint-test',
   briefId: 'brief-test',
   title: '前端性能优化',
-  audience: 'intermediate',
-  expectedOutcomes: ['能完成端到端优化'],
-  coreKnowledgePointIds: ['performance-metrics', 'rendering'],
-  estimatedMinutes: 320,
+  coveredOutcomeIds: ['diagnose'],
   items: [
     {
       id: 'outline-1',
-      order: 1,
       title: '性能指标与测量',
       summary: '指标基础',
-      learningObjectives: ['理解指标'],
       knowledgePointIds: ['performance-metrics'],
-      prerequisites: [],
-      dependsOnItemIds: [],
-      requiredArtifacts: ['ContentDraft'],
-      assessmentCriteria: ['完成练习'],
-      estimatedMinutes: 160,
-      depth: 'systematic',
+      buildsOn: [],
       children: [],
     },
   ],
@@ -150,8 +139,8 @@ describe('content pipeline role agents', () => {
           'approved',
           'outline-approved',
           'outline-approved-v1',
-          contentPipelineArtifactTypes.courseBlueprint,
-          courseBlueprintPayload as unknown as JsonValue,
+          contentPipelineArtifactTypes.outline,
+          outlinePayload as unknown as JsonValue,
           'approved outline',
         ),
       ],
@@ -186,7 +175,7 @@ describe('content pipeline role agents', () => {
             contentPipelineArtifactTypes.contentDraft,
             {
               id: `approved-${item.itemId}`,
-              outlineItemId: 'outline-1',
+              outlineNodeId: 'outline-1',
               chapterId: 'chapter-1',
               title: item.title,
               markdown: `## ${item.title}`,

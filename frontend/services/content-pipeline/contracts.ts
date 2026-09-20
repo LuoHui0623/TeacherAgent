@@ -4,7 +4,7 @@ export const contentPipelineArtifactTypes = {
   tutorEvents: 'TutorEventBatch',
   contextSnapshot: 'ContextSnapshot',
   learningBrief: 'LearningBrief',
-  courseBlueprint: 'CourseBlueprint',
+  outline: 'Outline',
   contentDraft: 'ContentDraft',
   reviewReport: 'ReviewReport',
   chapterDecision: 'ChapterApprovalDecision',
@@ -17,6 +17,22 @@ export const contentPipelineArtifactTypes = {
 
 export type ContentPipelineArtifactType =
   (typeof contentPipelineArtifactTypes)[keyof typeof contentPipelineArtifactTypes];
+
+/**
+ * 学习水平档位 —— 画像与 LearningBrief 共用同一套词，两者才能比对
+ * （「从『会用』到『进阶』」）。档位是定性描述，不是分数。
+ */
+export const learningLevels = ['涉猎', '入门', '会用', '熟练', '进阶', '精通'] as const;
+export type LearningLevel = (typeof learningLevels)[number];
+
+/** 学习取向 —— 决定大纲的形态。 */
+export const learningApproaches = [
+  'systematic',
+  'gap-filling',
+  'quick-scan',
+  'project-driven',
+] as const;
+export type LearningApproach = (typeof learningApproaches)[number];
 
 export interface TutorEventBatchPayload {
   capturedAt: string;
@@ -36,53 +52,70 @@ export interface ContextSnapshotPayload {
   sourceEventIds: string[];
 }
 
+/** 预期学习成果。带 id，下游才能「引用」而不是「抄文本」。 */
+export interface LearningOutcome {
+  /** 本 brief 版本内唯一；跨版本稳定性由 brief 版本链保证，不要求全局唯一。 */
+  id: string;
+  statement: string;
+}
+
+export interface LearningBriefScope {
+  /** 目标水平（学完达到的档位）。起点由画像的当前水平提供，不在此重复。 */
+  targetLevel: LearningLevel;
+  /** 本次要覆盖的主题。 */
+  inScope: string[];
+  /** 明确不覆盖的主题 —— 防止大纲膨胀。 */
+  outOfScope: string[];
+  /** 体量预算（分钟）。区别于画像的「有效学习时间」（已投入的历史事实）。 */
+  estimatedMinutes?: number;
+}
+
 export interface LearningBriefPayload {
   id: string;
+  /** 学什么（一句话）。 */
   goal: string;
-  intent: string;
-  learnerSummary: string;
-  scope: {
-    level: string;
-    depth: string;
-    breadth: string;
-    estimatedMinutes: number;
-  };
-  expectedOutcomes: string[];
-  constraints: string[];
-  questions: string[];
+  /** 以什么方式学 —— 决定大纲形态。 */
+  approach: LearningApproach;
+  scope: LearningBriefScope;
+  /** 预期成果；大纲通过 coveredOutcomeIds 引用它们。 */
+  expectedOutcomes: LearningOutcome[];
+  /** 本次任务的约束（时间、形式、限制）。区别于画像的长期偏好。 */
+  constraints?: string[];
+  /** 规划者信息不足时向用户提问 —— 由 brief-approval 渲染并回答。 */
+  questions?: string[];
 }
 
-export interface OutlineItemPayload {
+/**
+ * 大纲节点（生成侧形态：嵌套）。
+ *
+ * 嵌套对模型更自然、不易编错 id；入库时由规范化步骤拍平为 StoredOutlineNode（含 parentId）。
+ * 因此此形态不带 parentId / order —— 层级由嵌套表达，次序由数组顺序表达。
+ */
+export interface OutlineNodePayload {
   id: string;
-  parentId?: string;
-  order: number;
   title: string;
-  summary: string;
-  learningObjectives: string[];
-  knowledgePointIds: string[];
-  prerequisites: string[];
-  dependsOnItemIds: string[];
-  requiredArtifacts: string[];
-  assessmentCriteria: string[];
-  estimatedMinutes: number;
-  depth: string;
-  children: OutlineItemPayload[];
+  /** 摘要 —— 给人与模型看的展示文本，不是控制字段。 */
+  summary?: string;
+  /** 挂载：本节点涉及的知识点 id。 */
+  knowledgePointIds?: string[];
+  /** 本节点内容建立在这些节点之上：它们必须先完成；它们一变，本节点要重写。 */
+  buildsOn?: string[];
+  children?: OutlineNodePayload[];
 }
 
-export interface CourseBlueprintPayload {
+/** 教材大纲（生成侧契约）。 */
+export interface OutlinePayload {
   id: string;
   briefId: string;
   title: string;
-  audience: string;
-  expectedOutcomes: string[];
-  coreKnowledgePointIds: string[];
-  estimatedMinutes: number;
-  items: OutlineItemPayload[];
+  /** 本大纲覆盖了 brief 的哪几条目标 —— 引用而非抄写。 */
+  coveredOutcomeIds: string[];
+  items: OutlineNodePayload[];
 }
 
 export interface ContentDraftPayload {
   id: string;
-  outlineItemId: string;
+  outlineNodeId: string;
   chapterId: string;
   title: string;
   markdown: string;
@@ -168,7 +201,7 @@ export interface ArtifactPayloadMap {
   TutorEventBatch: TutorEventBatchPayload;
   ContextSnapshot: ContextSnapshotPayload;
   LearningBrief: LearningBriefPayload;
-  CourseBlueprint: CourseBlueprintPayload;
+  Outline: OutlinePayload;
   ContentDraft: ContentDraftPayload;
   ReviewReport: ReviewReportPayload;
   ChapterApprovalDecision: RevisionFeedbackPayload;
@@ -206,16 +239,6 @@ function requireString(
 ) {
   if (typeof record[key] !== 'string' || record[key].trim() === '') {
     errors.push(`${key} 必须是非空字符串`);
-  }
-}
-
-function requireNumber(
-  record: Record<string, JsonValue>,
-  key: string,
-  errors: string[],
-) {
-  if (typeof record[key] !== 'number' || !Number.isFinite(record[key])) {
-    errors.push(`${key} 必须是有效数字`);
   }
 }
 
@@ -269,27 +292,30 @@ const validators: Record<
     const errors: string[] = [];
     const record = requireRecord(payload, errors);
     if (!record) return { valid: false, errors };
-    for (const key of ['id', 'goal', 'intent', 'learnerSummary']) {
+    for (const key of ['id', 'goal', 'approach']) {
       requireString(record, key, errors);
     }
-    for (const key of ['expectedOutcomes', 'constraints', 'questions']) {
-      requireStringArray(record, key, errors);
+    requireObjectArray(record, 'expectedOutcomes', errors);
+    const scope = record.scope;
+    if (!isRecord(scope)) {
+      errors.push('scope 必须是对象');
+    } else {
+      requireString(scope, 'targetLevel', errors);
+      requireStringArray(scope, 'inScope', errors);
+      requireStringArray(scope, 'outOfScope', errors);
     }
-    if (!isRecord(record.scope)) errors.push('scope 必须是对象');
     return { valid: errors.length === 0, errors };
   },
-  CourseBlueprint: (payload) => {
+  Outline: (payload) => {
     const errors: string[] = [];
     const record = requireRecord(payload, errors);
     if (!record) return { valid: false, errors };
-    for (const key of ['id', 'briefId', 'title', 'audience']) {
+    for (const key of ['id', 'briefId', 'title']) {
       requireString(record, key, errors);
     }
-    requireNumber(record, 'estimatedMinutes', errors);
-    requireStringArray(record, 'expectedOutcomes', errors);
-    requireStringArray(record, 'coreKnowledgePointIds', errors);
+    requireStringArray(record, 'coveredOutcomeIds', errors);
     if (!Array.isArray(record.items) || record.items.length === 0) {
-      errors.push('items 至少需要一个大纲条目');
+      errors.push('items 至少需要一个大纲节点');
     }
     return { valid: errors.length === 0, errors };
   },
@@ -297,7 +323,7 @@ const validators: Record<
     const errors: string[] = [];
     const record = requireRecord(payload, errors);
     if (!record) return { valid: false, errors };
-    for (const key of ['id', 'outlineItemId', 'chapterId', 'title', 'markdown']) {
+    for (const key of ['id', 'outlineNodeId', 'chapterId', 'title', 'markdown']) {
       requireString(record, key, errors);
     }
     requireStringArray(record, 'knowledgePointIds', errors);
@@ -399,11 +425,11 @@ export const contentPipelineContracts: ContractDefinition[] = [
     required: true,
   },
   {
-    id: 'contract-course-blueprint-v1',
-    artifactType: contentPipelineArtifactTypes.courseBlueprint,
+    id: 'contract-outline-v1',
+    artifactType: contentPipelineArtifactTypes.outline,
     version: 1,
-    schemaId: 'content-pipeline/course-blueprint@1',
-    description: '结构化教材大纲、知识点与章节任务',
+    schemaId: 'content-pipeline/outline@1',
+    description: '结构化教材大纲：章节树与知识点挂载',
     required: true,
   },
   {

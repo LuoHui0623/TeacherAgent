@@ -36,6 +36,14 @@ import { WorkflowEditSession } from '../../services/content-pipeline/workflowEdi
 import { useWorkbenchStore } from '../../services/workbenchStore';
 import { domId } from '../../shared/ids';
 import { Button, SegmentedControl, toast } from '../../shared/ui';
+import { PromptMapPanel } from './PromptMapPanel';
+import {
+  createDemoPromptMapCall,
+  fetchPromptMapCalls,
+  initialPromptMapCalls,
+  mergePromptMapCalls,
+  type PromptMapCall,
+} from '../../services/content-pipeline/promptMap';
 import './ContentPipelineModule.css';
 
 interface NodePosition {
@@ -193,7 +201,7 @@ const initialArtifacts: DemoArtifact[] = [
     id: 'artifact-blueprint',
     nodeId: 'outline-architect',
     name: '课程大纲',
-    type: 'CourseBlueprint',
+    type: 'Outline',
     version: 'v3',
     status: 'confirmed',
   },
@@ -352,6 +360,7 @@ export function ContentPipelineModule() {
   const [runStatus, setRunStatus] = useState<WorkflowRunStatus>('waiting-human');
   const [events, setEvents] = useState(initialEvents);
   const [artifacts, setArtifacts] = useState(initialArtifacts);
+  const [promptCalls, setPromptCalls] = useState<PromptMapCall[]>(initialPromptMapCalls);
   const [comment, setComment] = useState('');
   const [editMode, setEditMode] = useState(false);
   const [editSession] = useState(() => new WorkflowEditSession(mainWorkflowVersion));
@@ -371,6 +380,25 @@ export function ContentPipelineModule() {
   useEffect(() => {
     const state = useWorkbenchStore.getState();
     if (!state.sidebarCollapsed) state.toggleSidebar();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadPromptCalls = () => {
+      void fetchPromptMapCalls().then((calls) => {
+        if (active && calls.length > 0) {
+          setPromptCalls((current) => mergePromptMapCalls(current, calls));
+        }
+      }).catch(() => {
+        // The content-pipeline demo remains usable when the API is offline.
+      });
+    };
+    loadPromptCalls();
+    const poll = window.setInterval(loadPromptCalls, 1500);
+    return () => {
+      active = false;
+      window.clearInterval(poll);
+    };
   }, []);
 
   useEffect(() => {
@@ -402,6 +430,17 @@ export function ContentPipelineModule() {
   function selectNode(nodeId: string) {
     setSelectedNodeId(nodeId);
     setComment('');
+  }
+
+  function appendPromptCall(role: string, inputText: string, status: PromptMapCall['status'] = 'running') {
+    setPromptCalls((current) => mergePromptMapCalls(current, [
+      createDemoPromptMapCall({
+        id: `live-prompt-call-${Date.now()}`,
+        role,
+        inputText,
+        status,
+      }),
+    ]));
   }
 
   function findNearestAnchor(
@@ -510,6 +549,7 @@ export function ContentPipelineModule() {
     setRunStatus('waiting-human');
     setEvents(initialEvents);
     setArtifacts(initialArtifacts);
+    setPromptCalls(initialPromptMapCalls);
     setSelectedNodeId('chapter-approval');
     setComment('');
     setChapterDecisions(initialChapterDecisions);
@@ -519,6 +559,9 @@ export function ContentPipelineModule() {
     if (nodeStatuses[selectedNode.id] !== 'waiting-approval') return;
 
     if (selectedNode.id === 'chapter-approval') {
+      appendPromptCall('beautifier', '对已确认章节执行格式统一和教材美化。', 'ok');
+      appendPromptCall('assessment-generator', '根据已确认章节生成练习、参考答案和解析。', 'ok');
+      appendPromptCall('quality-publisher', '检查发布清单与所有必需产物。', 'ok');
       setNodeStatuses((current) => ({
         ...current,
         'chapter-approval': 'succeeded',
@@ -579,6 +622,7 @@ export function ContentPipelineModule() {
     }
 
     if (selectedNode.id === 'publish-approval') {
+      appendPromptCall('quality-publisher', '确认所有产物可发布并生成最终教材版本。', 'ok');
       setNodeStatuses((current) => ({
         ...current,
         'publish-approval': 'succeeded',
@@ -617,6 +661,7 @@ export function ContentPipelineModule() {
   }
 
   function rerunSelectedNode() {
+    appendPromptCall(selectedNode.id, `重新执行 ${selectedNode.label}，使用当前工作流上下文。`);
     const orderedNodes = nodeColumns.flat();
     const startIndex = (orderedNodes as readonly string[]).indexOf(selectedNode.id);
     setNodeStatuses((current) => {
@@ -686,6 +731,7 @@ export function ContentPipelineModule() {
   }
 
   function requestChanges() {
+    appendPromptCall('reviser', comment.trim() || '根据用户审批意见重新整理章节。');
     setNodeStatuses((current) => ({
       ...current,
       reviewer: 'pending',
@@ -731,6 +777,7 @@ export function ContentPipelineModule() {
             variant="secondary"
             leadingIcon={<PlayIcon size={15} weight="fill" />}
             onClick={() => {
+              appendPromptCall('curriculum', '继续执行当前课程设计工作流中的待处理节点。');
               setRunStatus('running');
               toast('运行已继续，当前演示将调度待执行节点');
             }}
@@ -1307,6 +1354,8 @@ export function ContentPipelineModule() {
             ))}
           </div>
         </div>
+
+        <PromptMapPanel calls={promptCalls} />
       </section>
     </section>
   );

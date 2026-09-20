@@ -21,15 +21,17 @@ import {
 const learningBrief: LearningBriefPayload = {
   id: 'brief-001',
   goal: '掌握前端性能优化',
-  intent: '系统学习并用于项目实践',
-  learnerSummary: '具备基础 JavaScript 和 React 经验',
+  approach: 'systematic',
   scope: {
-    level: 'intermediate',
-    depth: 'systematic',
-    breadth: 'frontend-performance',
+    targetLevel: '进阶',
+    inScope: ['性能指标与测量', '渲染性能'],
+    outOfScope: ['构建工具原理'],
     estimatedMinutes: 480,
   },
-  expectedOutcomes: ['能定位常见性能瓶颈', '能设计优化方案'],
+  expectedOutcomes: [
+    { id: 'diagnose', statement: '能定位常见性能瓶颈' },
+    { id: 'design', statement: '能设计优化方案' },
+  ],
   constraints: ['每周 6 小时', '以项目实践为主'],
   questions: ['是否包含服务端渲染？'],
 };
@@ -153,7 +155,7 @@ describe('content pipeline artifact contracts', () => {
       producerNodeRunId: 'run-002:chapter-writers',
       payload: {
         id: 'draft-001',
-        outlineItemId: 'outline-001',
+        outlineNodeId: 'outline-001',
         chapterId: 'chapter-001',
         title: '函数基础',
         markdown: '## 函数',

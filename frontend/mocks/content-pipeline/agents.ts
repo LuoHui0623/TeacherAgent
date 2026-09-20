@@ -4,7 +4,7 @@ import {
   type BeautifiedContentPayload,
   type ContentDraftPayload,
   type ContextSnapshotPayload,
-  type CourseBlueprintPayload,
+  type OutlinePayload,
   type LearningBriefPayload,
   type PublicationManifestPayload,
   type ReviewReportPayload,
@@ -96,7 +96,7 @@ const agentDefinitions: ContentAgentDefinition[] = [
       contentPipelineArtifactTypes.learningBrief,
       contentPipelineArtifactTypes.revisionFeedback,
     ],
-    outputArtifactTypes: [contentPipelineArtifactTypes.courseBlueprint],
+    outputArtifactTypes: [contentPipelineArtifactTypes.outline],
   },
   {
     id: 'section-writer',
@@ -104,7 +104,7 @@ const agentDefinitions: ContentAgentDefinition[] = [
     description: '按 OutlineItem 并行生成 Markdown 内容草稿。',
     promptRef: 'content-pipeline/section-writer',
     defaultModel: 'mock-writer-v1',
-    inputArtifactTypes: [contentPipelineArtifactTypes.courseBlueprint],
+    inputArtifactTypes: [contentPipelineArtifactTypes.outline],
     outputArtifactTypes: [contentPipelineArtifactTypes.contentDraft],
   },
   {
@@ -209,15 +209,18 @@ export function createMockContentAgentRegistry() {
     const payload: LearningBriefPayload = {
       id: `${context.run.id}:brief`,
       goal: '掌握前端性能优化的分析与实践',
-      intent: '从基础指标到项目优化形成系统能力',
-      learnerSummary: '具备 React 基础，偏好示例驱动和可运行实验。',
+      approach: 'systematic',
       scope: {
-        level: 'intermediate',
-        depth: 'systematic',
-        breadth: 'frontend-performance',
+        targetLevel: '进阶',
+        inScope: ['性能指标与测量', '渲染性能', '网络与缓存'],
+        outOfScope: ['构建工具原理', '浏览器内核实现'],
         estimatedMinutes: 480,
       },
-      expectedOutcomes: ['识别性能瓶颈', '制定优化方案', '验证优化结果'],
+      expectedOutcomes: [
+        { id: 'diagnose', statement: '识别性能瓶颈' },
+        { id: 'plan', statement: '制定优化方案' },
+        { id: 'verify', statement: '验证优化结果' },
+      ],
       constraints: ['每周 6 小时', '以项目实践为主'],
       questions: [],
     };
@@ -236,26 +239,17 @@ export function createMockContentAgentRegistry() {
   });
 
   registerAgent(registry, 'outline-architect', (context) => {
-    const payload: CourseBlueprintPayload = {
+    const payload: OutlinePayload = {
       id: `${context.run.id}:blueprint`,
       briefId: `${context.run.id}:brief`,
       title: '前端性能优化',
-      audience: '具备 React 基础的中级学习者',
-      expectedOutcomes: ['能诊断性能瓶颈', '能完成一次端到端优化'],
-      coreKnowledgePointIds: ['performance-metrics', 'rendering', 'network'],
-      estimatedMinutes: 480,
+      coveredOutcomeIds: ['diagnose', 'plan', 'verify'],
       items: [1, 2, 3].map((index) => ({
         id: `${context.run.id}:outline-${index}`,
-        order: index,
         title: ['性能指标与测量', '渲染性能', '网络与缓存'][index - 1],
         summary: `第 ${index} 个核心章节`,
-        learningObjectives: [`掌握第 ${index} 部分核心概念`],
         knowledgePointIds: [`kp-${index}`],
-        prerequisites: index > 1 ? [`kp-${index - 1}`] : [],
-        requiredArtifacts: ['ContentDraft', 'AssessmentSet'],
-        assessmentCriteria: ['完成章节练习', '能解释优化方案'],
-        estimatedMinutes: 160,
-        depth: 'systematic',
+        buildsOn: [],
         children: [],
       })),
     };
@@ -264,8 +258,8 @@ export function createMockContentAgentRegistry() {
       outputs: [
         artifactOutput(
           context,
-          'blueprint',
-          contentPipelineArtifactTypes.courseBlueprint,
+          'outline',
+          contentPipelineArtifactTypes.outline,
           asJson(payload),
           '课程大纲',
         ),
@@ -274,8 +268,8 @@ export function createMockContentAgentRegistry() {
   });
 
   registerAgent(registry, 'section-writer', (context) => {
-    const blueprint = context.inputs.blueprint?.[0]?.payload as unknown as
-      | CourseBlueprintPayload
+    const blueprint = context.inputs.outline?.[0]?.payload as unknown as
+      | OutlinePayload
       | undefined;
     const items = blueprint?.items ?? [];
     return {
@@ -286,7 +280,7 @@ export function createMockContentAgentRegistry() {
           contentPipelineArtifactTypes.contentDraft,
           asJson({
             id: `${context.run.id}:draft:${item.id}`,
-            outlineItemId: item.id,
+            outlineNodeId: item.id,
             chapterId: item.id,
             title: item.title,
             markdown: `## ${item.title}\n\n这是章节主笔生成的初始 Markdown 草稿。`,
@@ -516,14 +510,14 @@ export function registerMockContentAgents(runtime: WorkflowRuntime) {
     mainWorkflowDefinition.id,
     'outline-contract-gate',
     (context) => {
-      const blueprint = context.inputs.blueprint?.[0];
-      if (!blueprint) throw new Error('缺少 CourseBlueprint 输入');
+      const blueprint = context.inputs.outline?.[0];
+      if (!blueprint) throw new Error('缺少 Outline 输入');
       return {
         outputs: [
           artifactOutput(
             context,
             'validated',
-            contentPipelineArtifactTypes.courseBlueprint,
+            contentPipelineArtifactTypes.outline,
             blueprint.payload,
             '大纲 Contract 校验通过',
           ),

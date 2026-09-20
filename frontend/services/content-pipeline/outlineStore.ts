@@ -1,12 +1,12 @@
 import {
   contentPipelineArtifactTypes,
   contentPipelineContracts,
-  type CourseBlueprintPayload,
-  type OutlineItemPayload,
+  type OutlineNodePayload,
+  type OutlinePayload,
 } from './contracts';
 import type { ArtifactVersion } from './types';
 
-export type OutlineItemWorkStatus =
+export type OutlineNodeWorkStatus =
   | 'planned'
   | 'assigned'
   | 'generating'
@@ -15,81 +15,65 @@ export type OutlineItemWorkStatus =
   | 'approved'
   | 'stale';
 
-export interface StoredOutlineItem
-  extends Omit<OutlineItemPayload, 'children'> {
+/** 大纲节点的存储形态（扁平）。权威存储表示：层级由 parentId 表达，次序由数组顺序表达。 */
+export type StoredOutlineNode = Omit<OutlineNodePayload, 'children'> & {
   parentId?: string;
-}
+};
 
 export interface OutlineWorkState {
-  itemId: string;
-  status: OutlineItemWorkStatus;
+  nodeId: string;
+  status: OutlineNodeWorkStatus;
   revision: number;
   assignedTo?: string;
   generatedArtifactVersionId?: string;
   updatedAt: string;
 }
 
-export interface OutlineBlueprintVersion {
+export interface OutlineVersion {
   id: string;
-  blueprintId: string;
+  outlineId: string;
   version: number;
   parentVersionId?: string;
   sourceArtifactVersionId?: string;
   status: 'draft' | 'confirmed' | 'superseded';
   title: string;
   briefId: string;
-  audience: string;
-  expectedOutcomes: string[];
-  coreKnowledgePointIds: string[];
-  estimatedMinutes: number;
-  items: StoredOutlineItem[];
+  /** 本大纲覆盖了 brief 的哪几条目标 —— 引用而非抄写。 */
+  coveredOutcomeIds: string[];
+  items: StoredOutlineNode[];
   createdAt: string;
   createdBy: string;
 }
 
 export interface CreateOutlineVersionInput {
-  blueprintId: string;
+  outlineId: string;
   id: string;
   sourceArtifactVersionId?: string;
-  blueprint: CourseBlueprintPayload;
+  outline: OutlinePayload;
   createdBy: string;
   createdAt: string;
 }
 
-export interface UpdateOutlineItemInput {
-  blueprintId: string;
-  itemId: string;
-  patch: Partial<
-    Pick<
-      OutlineItemPayload,
-      | 'title'
-      | 'summary'
-      | 'learningObjectives'
-      | 'knowledgePointIds'
-      | 'prerequisites'
-      | 'dependsOnItemIds'
-      | 'requiredArtifacts'
-      | 'assessmentCriteria'
-      | 'estimatedMinutes'
-      | 'depth'
-    >
-  >;
+export interface UpdateOutlineNodeInput {
+  outlineId: string;
+  nodeId: string;
+  patch: Partial<Pick<OutlineNodePayload, 'title' | 'summary' | 'knowledgePointIds' | 'buildsOn'>>;
   createdBy: string;
   createdAt: string;
   versionId: string;
 }
 
 export interface OutlineRepository {
-  save(version: OutlineBlueprintVersion): void;
-  get(versionId: string): OutlineBlueprintVersion | undefined;
-  listVersions(blueprintId: string): OutlineBlueprintVersion[];
-  getLatest(blueprintId: string): OutlineBlueprintVersion | undefined;
+  save(version: OutlineVersion): void;
+  get(versionId: string): OutlineVersion | undefined;
+  listVersions(outlineId: string): OutlineVersion[];
+  getLatest(outlineId: string): OutlineVersion | undefined;
 }
 
 export class InMemoryOutlineRepository implements OutlineRepository {
-  private readonly versions = new Map<string, OutlineBlueprintVersion>();
+  private readonly versions = new Map<string, OutlineVersion>();
 
-  save(version: OutlineBlueprintVersion) {
+  save(version: OutlineVersion) {
     this.versions.set(version.id, structuredClone(version));
   }
 
@@ -98,9 +82,9 @@ export class InMemoryOutlineRepository implements OutlineRepository {
     return version ? structuredClone(version) : undefined;
   }
 
-  listVersions(blueprintId: string) {
+  listVersions(outlineId: string) {
     return [...this.versions.values()]
-      .filter((version) => version.blueprintId === blueprintId)
+      .filter((version) => version.outlineId === outlineId)
       .sort((left, right) => left.version - right.version)
       .map((version) => structuredClone(version));
   }
@@ -117,38 +101,38 @@ export class InMemoryOutlineRepository implements OutlineRepository {
     createdAt: string;
   }) {
     const contract = contentPipelineContracts.find(
-      (item) => item.id === artifactVersion.contractId,
+      (node) => node.id === artifactVersion.contractId,
     );
-    if (contract?.artifactType !== contentPipelineArtifactTypes.courseBlueprint) {
-      throw new Error(`Artifact 不是 CourseBlueprint：${artifactVersion.id}`);
+    if (contract?.artifactType !== contentPipelineArtifactTypes.outline) {
+      throw new Error(`Artifact 不是 Outline：${artifactVersion.id}`);
     }
-    const blueprint = artifactVersion.payload as unknown as CourseBlueprintPayload;
+    const outline = artifactVersion.payload as unknown as OutlinePayload;
     return this.createVersion({
-      blueprintId: blueprint.id,
+      outlineId: outline.id,
       id,
       sourceArtifactVersionId: artifactVersion.id,
-      blueprint,
+      outline,
       createdBy,
       createdAt,
     });
   }
 
-  getLatest(blueprintId: string) {
-    return this.listVersions(blueprintId).at(-1);
+  getLatest(outlineId: string) {
+    return this.listVersions(outlineId).at(-1);
   }
 }
 
-function flattenItems(
-  items: OutlineItemPayload[],
+function flattenNodes(
+  items: OutlineNodePayload[],
   parentId?: string,
-): StoredOutlineItem[] {
-  return items.flatMap((item) => [
+): StoredOutlineNode[] {
+  return items.flatMap((node) => [
     {
-      ...item,
+      ...node,
       parentId,
       children: undefined,
-    } as unknown as StoredOutlineItem,
-    ...flattenItems(item.children, item.id),
+    } as unknown as StoredOutlineNode,
+    ...flattenNodes(node.children, node.id),
   ]);
 }
 
@@ -160,24 +144,21 @@ export class OutlineStore {
   ) {}
 
   createVersion(input: CreateOutlineVersionInput) {
-    const previous = this.repository.getLatest(input.blueprintId);
+    const previous = this.repository.getLatest(input.outlineId);
     if (previous) {
       this.repository.save({ ...previous, status: 'superseded' });
     }
-    const version: OutlineBlueprintVersion = {
+    const version: OutlineVersion = {
       id: input.id,
-      blueprintId: input.blueprintId,
+      outlineId: input.outlineId,
       version: (previous?.version ?? 0) + 1,
       parentVersionId: previous?.id,
       sourceArtifactVersionId: input.sourceArtifactVersionId,
       status: 'draft',
-      title: input.blueprint.title,
-      briefId: input.blueprint.briefId,
-      audience: input.blueprint.audience,
-      expectedOutcomes: [...input.blueprint.expectedOutcomes],
-      coreKnowledgePointIds: [...input.blueprint.coreKnowledgePointIds],
-      estimatedMinutes: input.blueprint.estimatedMinutes,
-      items: flattenItems(input.blueprint.items),
+      title: input.outline.title,
+      briefId: input.outline.briefId,
+      coveredOutcomeIds: [...input.outline.coveredOutcomeIds],
+      items: flattenNodes(input.outline.items),
       createdAt: input.createdAt,
       createdBy: input.createdBy,
     };
@@ -198,143 +179,143 @@ export class OutlineStore {
     createdAt: string;
   }) {
     const contract = contentPipelineContracts.find(
-      (item) => item.id === artifactVersion.contractId,
+      (node) => node.id === artifactVersion.contractId,
     );
-    if (contract?.artifactType !== contentPipelineArtifactTypes.courseBlueprint) {
-      throw new Error(`Artifact 不是 CourseBlueprint：${artifactVersion.id}`);
+    if (contract?.artifactType !== contentPipelineArtifactTypes.outline) {
+      throw new Error(`Artifact 不是 Outline：${artifactVersion.id}`);
     }
-    const blueprint = artifactVersion.payload as unknown as CourseBlueprintPayload;
+    const outline = artifactVersion.payload as unknown as OutlinePayload;
     return this.createVersion({
-      blueprintId: blueprint.id,
+      outlineId: outline.id,
       id,
       sourceArtifactVersionId: artifactVersion.id,
-      blueprint,
+      outline,
       createdBy,
       createdAt,
     });
   }
 
-  getLatest(blueprintId: string) {
-    return this.repository.getLatest(blueprintId);
+  getLatest(outlineId: string) {
+    return this.repository.getLatest(outlineId);
   }
 
-  listVersions(blueprintId: string) {
-    return this.repository.listVersions(blueprintId);
+  listVersions(outlineId: string) {
+    return this.repository.listVersions(outlineId);
   }
 
-  listItems(blueprintId: string) {
-    const version = this.requireLatest(blueprintId);
+  listNodes(outlineId: string) {
+    const version = this.requireLatest(outlineId);
     const states = this.ensureWorkStates(version);
-    return version.items.map((item) => ({
-      ...item,
-      work: structuredClone(states.get(item.id)!),
+    return version.items.map((node) => ({
+      ...node,
+      work: structuredClone(states.get(node.id)!),
     }));
   }
 
-  getItem(blueprintId: string, itemId: string) {
-    const item = this.listItems(blueprintId).find((candidate) => candidate.id === itemId);
-    if (!item) throw new Error(`OutlineItem 不存在：${itemId}`);
-    return item;
+  getNode(outlineId: string, nodeId: string) {
+    const node = this.listNodes(outlineId).find((candidate) => candidate.id === nodeId);
+    if (!node) throw new Error(`大纲节点不存在：${nodeId}`);
+    return node;
   }
 
-  listAvailableItems(blueprintId: string) {
-    const items = this.listItems(blueprintId);
-    const byId = new Map(items.map((item) => [item.id, item]));
-    return items.filter((item) => {
-      if (!['planned', 'stale'].includes(item.work.status)) return false;
-      return item.dependsOnItemIds.every((dependencyId) => {
+  listAvailableNodes(outlineId: string) {
+    const items = this.listNodes(outlineId);
+    const byId = new Map(items.map((node) => [node.id, node]));
+    return items.filter((node) => {
+      if (!['planned', 'stale'].includes(node.work.status)) return false;
+      return node.buildsOn.every((dependencyId) => {
         const dependency = byId.get(dependencyId);
         return dependency ? ['generated', 'approved'].includes(dependency.work.status) : true;
       });
     });
   }
 
-  claimItems({
-    blueprintId,
+  claimNodes({
+    outlineId,
     count,
     assignedTo,
     updatedAt,
   }: {
-    blueprintId: string;
+    outlineId: string;
     count: number;
     assignedTo: string;
     updatedAt: string;
   }) {
-    const available = this.listAvailableItems(blueprintId).slice(0, count);
-    const states = this.ensureWorkStates(this.requireLatest(blueprintId));
-    for (const item of available) {
-      states.set(item.id, {
-        ...item.work,
+    const available = this.listAvailableNodes(outlineId).slice(0, count);
+    const states = this.ensureWorkStates(this.requireLatest(outlineId));
+    for (const node of available) {
+      states.set(node.id, {
+        ...node.work,
         status: 'assigned',
         assignedTo,
         updatedAt,
       });
     }
-    return available.map((item) => ({
-      ...item,
-      work: structuredClone(states.get(item.id)!),
+    return available.map((node) => ({
+      ...node,
+      work: structuredClone(states.get(node.id)!),
     }));
   }
 
-  startItem({
-    blueprintId,
-    itemId,
+  startNode({
+    outlineId,
+    nodeId,
     updatedAt,
   }: {
-    blueprintId: string;
-    itemId: string;
+    outlineId: string;
+    nodeId: string;
     updatedAt: string;
   }) {
-    return this.patchWorkState(blueprintId, itemId, {
+    return this.patchWorkState(outlineId, nodeId, {
       status: 'generating',
       updatedAt,
     });
   }
 
-  completeItem({
-    blueprintId,
-    itemId,
+  completeNode({
+    outlineId,
+    nodeId,
     artifactVersionId,
     updatedAt,
   }: {
-    blueprintId: string;
-    itemId: string;
+    outlineId: string;
+    nodeId: string;
     artifactVersionId: string;
     updatedAt: string;
   }) {
-    return this.patchWorkState(blueprintId, itemId, {
+    return this.patchWorkState(outlineId, nodeId, {
       status: 'generated',
       generatedArtifactVersionId: artifactVersionId,
       updatedAt,
     });
   }
 
-  approveItem({
-    blueprintId,
-    itemId,
+  approveNode({
+    outlineId,
+    nodeId,
     updatedAt,
   }: {
-    blueprintId: string;
-    itemId: string;
+    outlineId: string;
+    nodeId: string;
     updatedAt: string;
   }) {
-    return this.patchWorkState(blueprintId, itemId, {
+    return this.patchWorkState(outlineId, nodeId, {
       status: 'approved',
       updatedAt,
     });
   }
 
-  updateItem(input: UpdateOutlineItemInput) {
-    const latest = this.requireLatest(input.blueprintId);
-    const target = latest.items.find((item) => item.id === input.itemId);
-    if (!target) throw new Error(`OutlineItem 不存在：${input.itemId}`);
+  updateNode(input: UpdateOutlineNodeInput) {
+    const latest = this.requireLatest(input.outlineId);
+    const target = latest.items.find((node) => node.id === input.nodeId);
+    if (!target) throw new Error(`大纲节点不存在：${input.nodeId}`);
 
-    const affectedItemIds = this.collectAffectedItems(latest.items, input.itemId);
-    const nextItems = latest.items.map((item) =>
-      item.id === input.itemId ? { ...item, ...input.patch } : item,
+    const affectedNodeIds = this.collectAffectedNodes(latest.items, input.nodeId);
+    const nextItems = latest.items.map((node) =>
+      node.id === input.nodeId ? { ...node, ...input.patch } : node,
     );
     this.repository.save({ ...latest, status: 'superseded' });
-    const nextVersion: OutlineBlueprintVersion = {
+    const nextVersion: OutlineVersion = {
       ...latest,
       id: input.versionId,
       version: latest.version + 1,
@@ -346,10 +327,10 @@ export class OutlineStore {
     };
     this.repository.save(nextVersion);
     const states = this.ensureWorkStates(nextVersion);
-    for (const itemId of affectedItemIds) {
-      const state = states.get(itemId);
+    for (const nodeId of affectedNodeIds) {
+      const state = states.get(nodeId);
       if (!state) continue;
-      states.set(itemId, {
+      states.set(nodeId, {
         ...state,
         status: 'stale',
         revision: state.revision + 1,
@@ -359,53 +340,53 @@ export class OutlineStore {
     }
     return {
       version: structuredClone(nextVersion),
-      affectedItemIds,
+      affectedNodeIds,
     };
   }
 
   private patchWorkState(
-    blueprintId: string,
-    itemId: string,
+    outlineId: string,
+    nodeId: string,
     patch: Partial<OutlineWorkState> & { updatedAt: string },
   ) {
-    const version = this.requireLatest(blueprintId);
+    const version = this.requireLatest(outlineId);
     const states = this.ensureWorkStates(version);
-    const current = states.get(itemId);
-    if (!current) throw new Error(`OutlineItem 不存在：${itemId}`);
+    const current = states.get(nodeId);
+    if (!current) throw new Error(`大纲节点不存在：${nodeId}`);
     const next = {
       ...current,
       ...patch,
     };
-    states.set(itemId, next);
+    states.set(nodeId, next);
     return structuredClone(next);
   }
 
-  private collectAffectedItems(items: StoredOutlineItem[], rootItemId: string) {
-    const affected = new Set([rootItemId]);
-    const queue = [rootItemId];
+  private collectAffectedNodes(items: StoredOutlineNode[], rootNodeId: string) {
+    const affected = new Set([rootNodeId]);
+    const queue = [rootNodeId];
     while (queue.length > 0) {
       const current = queue.shift()!;
-      for (const item of items) {
-        const dependsOnCurrent = item.dependsOnItemIds.includes(current);
-        const isChild = item.parentId === current;
-        if ((!dependsOnCurrent && !isChild) || affected.has(item.id)) continue;
-        affected.add(item.id);
-        queue.push(item.id);
+      for (const node of items) {
+        const dependsOnCurrent = node.buildsOn.includes(current);
+        const isChild = node.parentId === current;
+        if ((!dependsOnCurrent && !isChild) || affected.has(node.id)) continue;
+        affected.add(node.id);
+        queue.push(node.id);
       }
     }
     return [...affected];
   }
 
-  private ensureWorkStates(version: OutlineBlueprintVersion) {
-    let states = this.workStates.get(version.blueprintId);
+  private ensureWorkStates(version: OutlineVersion) {
+    let states = this.workStates.get(version.outlineId);
     if (!states) {
       states = new Map();
-      this.workStates.set(version.blueprintId, states);
+      this.workStates.set(version.outlineId, states);
     }
-    for (const item of version.items) {
-      if (!states.has(item.id)) {
-        states.set(item.id, {
-          itemId: item.id,
+    for (const node of version.items) {
+      if (!states.has(node.id)) {
+        states.set(node.id, {
+          nodeId: node.id,
           status: 'planned',
           revision: 1,
           updatedAt: version.createdAt,
@@ -415,9 +396,9 @@ export class OutlineStore {
     return states;
   }
 
-  private requireLatest(blueprintId: string) {
-    const version = this.repository.getLatest(blueprintId);
-    if (!version) throw new Error(`CourseBlueprint 不存在：${blueprintId}`);
+  private requireLatest(outlineId: string) {
+    const version = this.repository.getLatest(outlineId);
+    if (!version) throw new Error(`Outline 不存在：${outlineId}`);
     return version;
   }
 }
