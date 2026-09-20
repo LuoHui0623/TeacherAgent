@@ -1,7 +1,7 @@
 /**
  * 知识点契约。
  *
- * 设计说明见 `docs/knowledge-map.md` 第四节。四条边界规则：
+ * 设计说明见 `frontend/docs/knowledge-map.md` 第四节。四条边界规则：
  * - **先有 Domain，后有 KnowledgePoint**：知识点只能引用词表内的领域
  * - `id` 稳定，不随 `label` / `domains` 变更
  * - `domains` 只写最具体的路径，祖先由前缀匹配蕴含
