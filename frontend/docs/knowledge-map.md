@@ -1,7 +1,7 @@
 # 知识地图设计
 
 > **性质**：知识地图域设计说明。定义「有源抽取」方向、核心对象（`KnowledgePoint` / `KnowledgeEdge`）、大纲契约的重设计需求、累积逻辑与数据演进策略。
-> 业务口径见 `PRD.md`「知识地图」，Agent 模型见 `docs/agents.md`。
+> 业务口径见 `PRD.md`「知识地图」，Agent 模型见 `src/teacheragent/docs/agents.md`。
 
 ## 一、方向：有源抽取 + 拓扑
 
@@ -30,7 +30,7 @@ PRD 原文要求的本来就不是生成：
 
 ## 三、现有大纲契约的问题（不可直接当确定来源）
 
-> 逐条分析与字段取舍建议见 **`docs/outline-contract.md`**（独立讨论稿）。本节只列问题清单。
+> 逐条分析与字段取舍建议见 **`frontend/docs/outline-contract.md`**（独立讨论稿）。本节只列问题清单。
 
 以 `frontend/services/content-pipeline/contracts.ts` 的 `CourseBlueprintPayload` / `OutlineItemPayload` 为例：
 
@@ -589,7 +589,7 @@ export const CHECKPOINT_INTERVAL = 10;
 | 已验证的结构化大纲 | **纯投影**（确定性代码：读大纲 → 构图 → 布局） | 不需要 |
 | 教材正文 / 笔记（自由文本） | **抽取** | 需要：一个 role + 一条带人工确认的固定流程 |
 
-**不建议做成自主 agent**：PRD 要求「人工可修正」，「抽取 → 人工确认 → 入库」天然是一条**固定流程**，不是让模型自由决定调什么工具。按 `docs/agents.md` 的模型：
+**不建议做成自主 agent**：PRD 要求「人工可修正」，「抽取 → 人工确认 → 入库」天然是一条**固定流程**，不是让模型自由决定调什么工具。按 `src/teacheragent/docs/agents.md` 的模型：
 
 - 它是 **capability**（如 `knowledge-extraction`：教材正文 / 笔记 → 知识点与关系）
 - 它有一条 **workflow** 串起「抽取 → 归并 → 人工确认 → 入库」

@@ -17,7 +17,7 @@
 
 ## 提示词
 
-- `prompts/knowledge_map.md`：知识地图角色设定（知识点与关系抽取）。
+- `agent/prompts/knowledge-map.md`：知识地图能力任务指令（知识点与关系抽取）。
 ## 代码设计哲学
 
 > 待落实时补充。当前处于设计阶段，先不设计实现。

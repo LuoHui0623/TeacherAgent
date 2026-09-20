@@ -4,30 +4,19 @@
 
 编排教材生产主流程：Tutor 上下文 → 结构化大纲 → 章节内容 → 审校修订 → 美化出题 → 质检发布。
 
-## 编排的能力
+## 当前后端 Agent 边界
 
-| 顺序 | 能力域 | 输入 → 输出 | 节点 |
-|---|---|---|---|
-| 1 | `profile` | 上下文 → 结构化画像 | `context-snapshot` |
-| 2 | `intent-planning` | `ContextSnapshot` → `LearningBrief` | `intent-planner` |
-| — | 人工节点 | 确认 Learning Brief | `brief-approval` |
-| 3 | `outline` | `LearningBrief` → `CourseBlueprint` | `outline-architect` |
-| 4 | `section-writing` | `OutlineItem` → `ContentDraft` | `chapter-writers`（按条目并行） |
-| 5 | `review` | `ContentDraft` → `ReviewReport` | `reviewer` |
-| 6 | `revision` | `ContentDraft` + `ReviewReport` → `ContentDraft` | `reviser` |
-| — | 人工节点 | 按章节确认 | `chapter-approval` |
-| 7 | `beautify` | `ContentDraft` → `BeautifiedContent` | `beautifier` |
-| 8 | `assessment` | `ContentDraft` → `AssessmentSet` | `assessment-generator` |
-| 9 | `quality` | 内容 + 题目 → `PublicationManifest` | `quality-gate` / `publisher` |
-| — | 人工节点 | 最终发布确认 | `publish-approval` |
+课程设计由 `teacheragent.agent.curriculum` 的 LangGraph 图负责；Tutor 通过工具调用型
+Agent 提供学习上下文和知识地图查询。能力域只提供可复用的输入 → 输出逻辑，实际装配
+由 Agent / workflow 代码完成。
 
-现有实现参考：`frontend/services/content-pipeline/main-workflow.ts`（前端 mock 图定义，含节点、端口与边）。
+## 提示词
 
-## 流水线级提示词
-
-`prompts/curriculum.md`：覆盖完整流水线的提示词（流水线级，非角色设定）。
+课程设计提示词位于 `agent/prompts/curriculum.md`，统一由
+`infrastructure.llm.prompts.load_prompt()` 加载。
 
 ## 边界
 
-- 不实现能力域内部逻辑，只做装配与控制流。
-- 能力域的角色设定提示词不写进本目录；本目录只放流水线级提示词。
+- 不实现通用 Agent runtime。
+- 不把知识地图注册为独立 Agent role。
+- 不在本目录维护角色 `settings.md` 或分散提示词副本。

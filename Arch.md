@@ -2,6 +2,34 @@
 
 > **性质**：项目结构权威。确定前后端分层、目录树与依赖规则
 
+## 文档体系
+
+**文档就近于它描述的代码。**
+
+| 位置 | 承载什么 |
+|---|---|
+| `frontend/docs/` | **前端领域与契约设计** —— 契约落在 `frontend/services/` 的领域（如大纲契约、知识地图对象模型）、桌面壳设计 |
+| `src/teacheragent/docs/` | **后端领域与资产设计** —— 后端包结构（Agent 模型）、提示词资产、画像存储与版本策略 |
+| 根目录 | 业务（`PRD.md`）、结构（`Arch.md`）、行动（`Task.md`）、入口（`README.md`） |
+| `.github/` | AI 协作约定与代码哲学（`AGENTS.md`） |
+
+**归属判据**：按「**这份契约 / 这个决策主导在哪一端的代码里**」决定。
+
+**一份文档只有一个位置。** 跨端内容不在两端各放一份，而是**交叉引用**过去 —— 例如 `frontend/docs/knowledge-map.md` 讲知识图对象模型（契约在前端），后端实现时引用它，而不是复制一份到后端。
+
+| 文档 | 职责 | 权威范围 |
+|---|---|---|
+| `PRD.md` | 业务需求唯一权威 | 业务方向；**不含技术实现** |
+| `Arch.md` | 项目结构唯一权威 | 分层、目录树、依赖规则、命名、文档体系 |
+| `Task.md` | 行动规划载体 | 已确认口径、待确认问题、实施任务与依赖 |
+| `README.md` | 项目入口 | 文档导航与职责索引 |
+| `.github/AGENTS.md` | AI 协作约定与代码哲学 | 测试先行 / Contracts 先行 / 命名成族 |
+| `frontend/docs/*.md`、`src/teacheragent/docs/*.md` | **领域与契约设计** | 各领域的对象、契约、流程与取舍 |
+| `frontend/README.md`、`src/teacheragent/README.md` | 包级说明 | 各自的目录、命令与接口清单 |
+
+**冲突优先级**：业务 → `PRD.md`；结构 → `Arch.md`；当前行动 → `Task.md`；领域设计细节 → 该端 `docs/`；**跨端分歧 → `Arch.md`**。
+
+**引用约定**：文档内互相引用一律用**仓库根相对路径**（如 `frontend/docs/knowledge-map.md`、`PRD.md`）。
 ## 命名
 
 **以维护的核心对象为族。** 一个族共用一个朴素词根，同一概念只允许一种叫法。
@@ -65,15 +93,14 @@ frontend/
 
 ```text
 src/teacheragent/
-├── api/              # FastAPI 路由层：HTTP/WS 接口，含教师 Agent 对话流式接口；薄层，只做参数校验与转发
-├── services/         # 业务编排入口：LangGraph 图定义与执行、画像服务、笔记服务、知识地图业务
-├── workflows/        # 编排层：复用 capabilities（或加临时 / 手动节点）用 LangGraph 编排好的具体实现
-├── capabilities/     # Agent 原子能力：按能力域目录组织（输入 → 输出），每域含 README.md 与 prompts/
-├── infrastructure/   # 基建层：llm/（LLM 调用、日志、模型目录、Profile、settings）+ store/（SQLite / Neo4j 持久化）
-├── shared/           # 纯工具层：无状态、无持久化依赖的通用工具
+├── api/              # FastAPI 路由层
+├── agent/            # Tutor 工具调用 Agent、Curriculum LangGraph 与统一提示词资产
+├── services/         # 业务编排入口：画像、教材、知识地图等领域服务
+├── workflows/        # 具体流程边界与说明，不提供通用 Agent runtime
+├── capabilities/     # 可复用输入 → 输出能力域，不等同于 Agent role
+├── infrastructure/   # LLM 调用、日志、模型目录、Profile 与 SQLite / Neo4j 持久化
 ├── config/           # 配置：LLM settings（固化配置、环境变量、表覆盖值）、应用配置
 ├── constants/        # 通用常量与枚举：教材生命周期状态、Agent 角色名等；不提供提示词
-├── docs/             # 包内设计说明
 ├── tests/            # 测试
 └── __init__.py
 ```
@@ -83,19 +110,19 @@ src/teacheragent/
 | 组件 | 选型 | 职责 |
 |---|---|---|
 | 语言与包管理 | Python 3.13 + uv（src 布局，uv_build） | 运行时与依赖 |
-| 接口层 | FastAPI | HTTP/WS 接口，教师 Agent 对话流式响应 |
-| LLM 客户端与设置 | LangChain | 模型调用封装、LLM settings（支持热更新）、提示词管理 |
-| 工作流编排 | LangGraph | 教材生产线（大纲→主笔→修订→美化→出题，含人工确认节点）、教师 Agent 行为响应流 |
+| 接口层 | FastAPI | HTTP/WS 接口与 Agent 调用入口 |
+| LLM 客户端与设置 | LangChain | 模型调用、工具注册与提示词加载 |
+| 工作流编排 | LangGraph | Tutor 自主工具图与 Curriculum 固定课程图 |
 | 图数据库 | Neo4j | 知识地图：知识点节点、先修/包含/关联边、笔记双链注入 |
-| 关系数据库 | SQLite | 教材资产、调用全量日志、用户画像、学习行为记录、提示词版本 |
+| 关系数据库 | SQLite | 教材资产、调用全量日志、用户画像、学习行为记录 |
 
 ### 依赖规则
 
-- 分层单向依赖：`api → services → workflows → capabilities → infrastructure`。
+- 分层单向依赖：`api → services / agent → workflows / capabilities → infrastructure`。
 - `infrastructure` 是基建层：可以依赖 `config / constants / shared`，**不得依赖** `capabilities / workflows / services / api`（由 `tests/test_layering.py::test_infrastructure_does_not_depend_on_domain` 强制）。
 - `shared` 是**纯工具层**：无状态、无持久化依赖，不得依赖 `infrastructure` 及以上任何层（由 `tests/test_layering.py::test_shared_layer_is_pure_utilities` 强制）。
-- `capabilities` 的每个能力域是一个可复用的「输入 → 输出」单元，由 `workflows`（或 `services`）装配使用；能力域自带 `README.md`（职责）与 `prompts/`（角色设定）。
-- `workflows` 是具体实现：复用 `capabilities`，允许附加临时 / 手动节点；workflow 自带的 `prompts/` 承载**覆盖完整流水线的提示词**，与能力域的**角色设定**两层并存。
+- `capabilities` 是可复用的「输入 → 输出」单元；实际 Agent 装配以 `agent/tutor.py` 与 `agent/curriculum.py` 为准，不增加固定 capabilities 声明。
+- 所有提示词统一在 `agent/prompts/`，由 `infrastructure.llm.prompts.load_prompt` 加载；不拆角色 `settings.md`。
+- Agent role 只有 `tutor` 与 `curriculum`；知识地图是 module / capability，不是独立 role。
 - SQL / 图数据库驱动只允许出现在 `infrastructure/store/` 内（由 `tests/test_layering.py::test_store_is_only_sql_owner` 强制）。
-- 所有 LLM 调用经 `infrastructure.llm.call_logger` 统一落库，角色代码零侵入。
-- LLM Profile 运行时解析：`config/llm.yaml` 管固化兜底，`.env`/环境变量管秘密与部署差异，`llm_profiles` 表按角色保存多个 Profile 与激活项；模型候选存放在内存目录，前端可触发刷新。
+- 所有普通 LLM 调用经 `infrastructure.llm.call_logger` 统一落库。
