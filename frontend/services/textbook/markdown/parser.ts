@@ -264,7 +264,7 @@ function mapTopLevelNode(
       return {
         ...base,
         type: 'heading',
-        level: heading.depth <= 2 ? 2 : 3,
+        level: heading.depth,
         title: toString(heading),
       } satisfies HeadingBlock;
     }

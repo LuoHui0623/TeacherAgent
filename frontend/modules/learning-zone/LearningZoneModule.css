@@ -4,24 +4,8 @@
    设计原则：书页式但不拟真；正文为视觉主体；辅助组件低干扰；状态一致。
    ========================================================================== */
 
-/* --------------------------------------------------------------------------
-   Typography* — 统一阅读编排（Word 式）
-   通过 CSS 变量注入字体、字号、行间距、字间距、段间距、正文宽度。
-   调整时只改这里；正文 / 标题 / 引用 / 列表统一引用，避免逐块自由编排。
-   -------------------------------------------------------------------------- */
 :root {
-  --reader-font-family: var(--font-reading);
-  --reader-font-size: 16px;
-  --reader-line-height: 1.85;
-  --reader-letter-spacing: 0.01em;
-  --reader-paragraph-spacing: 16px;
   --reader-content-width: 760px;
-  --reader-heading-font-family: var(--reader-font-family);
-  --reader-heading-letter-spacing: -0.012em;
-  --reader-code-font-family: var(--font-mono);
-  --reader-code-font-size: 12.5px;
-  --reader-callout-font-size: 13px;
-  --reader-table-font-size: 13px;
 }
 
 /* --------------------------------------------------------------------------
@@ -46,10 +30,6 @@
   flex: 1;
   padding: 52px clamp(28px, 7vw, 104px) 80px;
   overflow: hidden;
-  font-family: var(--reader-font-family);
-  font-size: var(--reader-font-size);
-  line-height: var(--reader-line-height);
-  letter-spacing: var(--reader-letter-spacing);
   /* 连续阅读面：让正文保持轻盈，不再像嵌套卡片。 */
   background: color-mix(in srgb, var(--surface) 96%, var(--accent-soft));
   border: 0;
@@ -142,18 +122,12 @@
 .reader-section-heading h2 {
   margin: 0;
   color: var(--ink);
-  font-size: 30px;
-  font-weight: 760;
-  line-height: 1.18;
-  letter-spacing: -0.015em;
 }
 
 .reader-section-heading p {
   max-width: var(--reader-content-width);
   margin: 12px 0 0;
   color: var(--ink-secondary);
-  font-size: calc(var(--reader-font-size) * 0.92);
-  line-height: var(--reader-line-height);
 }
 
 .reader-blocks {
@@ -174,33 +148,12 @@
 
 .reader-heading {
   scroll-margin-top: 20px;
-  color: var(--ink);
-  font-family: var(--reader-heading-font-family);
-  font-weight: 740;
-  letter-spacing: var(--reader-heading-letter-spacing);
-}
-
-.reader-heading.is-level-2 {
-  margin: 0;
-  font-size: calc(var(--reader-font-size) * 1.4);
-  line-height: 1.28;
-}
-
-.reader-heading.is-level-3 {
-  margin: 0;
   color: var(--ink-secondary);
-  font-size: calc(var(--reader-font-size) * 1.1);
-  font-weight: 680;
-  line-height: 1.38;
 }
 
 .reader-prose {
   max-width: var(--reader-content-width);
   color: #2f423f;
-  font-family: var(--reader-font-family);
-  font-size: var(--reader-font-size);
-  line-height: var(--reader-line-height);
-  letter-spacing: var(--reader-letter-spacing);
 }
 
 .reader-prose p {
@@ -208,7 +161,7 @@
 }
 
 .reader-prose p + p {
-  margin-top: var(--reader-paragraph-spacing);
+  margin-top: var(--type-paragraph-spacing);
 }
 
 .reader-inline-code {
@@ -217,8 +170,6 @@
   border-radius: 4px;
   background: var(--surface-hover);
   color: var(--accent-ink);
-  font-family: var(--font-mono);
-  font-size: 0.88em;
 }
 
 .reader-inline-math {
@@ -243,10 +194,6 @@
   margin: 0;
   padding-left: 26px;
   color: #2f423f;
-  font-family: var(--reader-font-family);
-  font-size: var(--reader-font-size);
-  line-height: var(--reader-line-height);
-  letter-spacing: var(--reader-letter-spacing);
 }
 
 .reader-list li + li {
@@ -259,9 +206,6 @@
   padding: 4px 0 4px 18px;
   border-left: 3px solid var(--accent-bright);
   color: var(--ink-secondary);
-  font-family: var(--reader-font-family);
-  font-size: calc(var(--reader-font-size) * 0.94);
-  line-height: var(--reader-line-height);
   font-style: italic;
 }
 
@@ -286,8 +230,6 @@
   width: 100%;
   min-width: 520px;
   border-collapse: collapse;
-  font-size: calc(var(--app-font-size) * 0.84);
-  line-height: 1.55;
 }
 
 .reader-table th,
@@ -310,7 +252,6 @@
 .reader-table th {
   background: var(--surface-hover);
   color: var(--accent-ink);
-  font-weight: 720;
 }
 
 .reader-table code {
@@ -364,35 +305,14 @@
   color: var(--danger);
 }
 
-.reader-callout div > span {
-  color: var(--accent);
-  font-size: 10px;
-  font-weight: 750;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.reader-callout.is-tip div > span {
-  color: var(--amber);
-}
-
-.reader-callout.is-warning div > span {
-  color: var(--danger);
-}
-
 .reader-callout h4 {
-  margin: 2px 0 0;
+  margin: 0;
   color: var(--ink);
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .reader-callout p {
   margin: 4px 0 0;
   color: var(--ink-secondary);
-  font-family: var(--reader-font-family);
-  font-size: var(--reader-callout-font-size);
-  line-height: 1.6;
 }
 
 /* 公式 */
@@ -411,7 +331,6 @@
   overflow-x: auto;
   overflow-y: hidden;
   color: var(--accent-ink);
-  font-size: 17px;
 }
 
 .reader-formula__math .katex-display {
@@ -430,19 +349,15 @@
 
 .reader-formula__source {
   color: var(--accent-ink);
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .reader-formula__error {
   margin-top: 8px;
-  font-size: 11px;
 }
 
 .reader-formula figcaption {
   margin-top: 10px;
   color: var(--ink-tertiary);
-  font-size: 11px;
 }
 
 /* Mermaid / 不支持块 */
@@ -466,13 +381,11 @@
 .reader-mermaid code,
 .reader-unsupported code {
   color: var(--accent-ink);
-  font-size: 12px;
 }
 
 .reader-mermaid figcaption {
   margin-top: 8px;
   color: var(--ink-tertiary);
-  font-size: 11px;
 }
 
 .reader-unsupported {
@@ -484,15 +397,11 @@
   display: block;
   margin-bottom: 8px;
   color: var(--danger);
-  font-size: 12px;
 }
 
 .reader-html {
   max-width: var(--reader-content-width);
   color: var(--ink-secondary);
-  font-family: var(--reader-font-family);
-  font-size: var(--reader-font-size);
-  line-height: var(--reader-line-height);
 }
 
 .reader-parse-warnings {
@@ -503,7 +412,6 @@
   border-radius: 7px;
   background: var(--amber-soft);
   color: var(--ink-secondary);
-  font-size: 11px;
 }
 
 .reader-parse-warnings p {
@@ -533,8 +441,6 @@
   padding: 10px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   color: #91b6ae;
-  font-size: 10px;
-  letter-spacing: 0.02em;
 }
 
 .reader-code pre {
@@ -543,16 +449,10 @@
   overflow-x: auto;
 }
 
-.reader-code code {
-  font-size: 12px;
-  line-height: 1.7;
-}
-
 .reader-code figcaption {
   padding: 9px 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   color: #91b6ae;
-  font-size: 10px;
 }
 
 /* --------------------------------------------------------------------------
@@ -864,9 +764,6 @@
   margin: 0;
   padding: 14px 48px 14px 14px;
   overflow: auto;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.7;
   tab-size: 2;
   white-space: pre;
 }
@@ -878,9 +775,6 @@
 }
 
 .code-fence__highlight code {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.7;
   tab-size: 2;
 }
 
@@ -949,6 +843,38 @@
   color: var(--ink-tertiary);
   font-size: 10px;
   letter-spacing: 0.02em;
+}
+
+.code-fence__output-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.code-fence__reset {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--ink-tertiary);
+  cursor: pointer;
+}
+
+.code-fence__reset:hover:not(:disabled) {
+  background: var(--surface-muted);
+  color: var(--ink);
+}
+
+.code-fence__reset:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.code-fence__reset:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .code-fence__status {
@@ -1321,8 +1247,27 @@
   font-weight: 700;
 }
 
+.reader-article-outline .is-level-2 button {
+  padding-left: 26px;
+}
+
 .reader-article-outline .is-level-3 button {
   padding-left: 40px;
+  color: var(--ink-tertiary);
+}
+
+.reader-article-outline .is-level-4 button {
+  padding-left: 54px;
+  color: var(--ink-tertiary);
+}
+
+.reader-article-outline .is-level-5 button {
+  padding-left: 68px;
+  color: var(--ink-tertiary);
+}
+
+.reader-article-outline .is-level-6 button {
+  padding-left: 82px;
   color: var(--ink-tertiary);
 }
 
@@ -1331,7 +1276,7 @@
    -------------------------------------------------------------------------- */
 
 .reader-prose mark {
-  padding: 0 2px;
+  padding: 0;
   border-radius: 3px;
   color: inherit;
   transition: background-color var(--motion-fast) ease;
@@ -1421,6 +1366,17 @@
   scrollbar-width: none;
 }
 
+.reader-tools__group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.reader-tools__group + .reader-tools__group {
+  padding-left: 8px;
+  border-left: 1px solid rgba(112, 87, 59, 0.24);
+}
+
 .reader-article.motion-enter {
   animation-name: reader-article-fade-in;
 }
@@ -1439,8 +1395,8 @@
   display: none;
 }
 
-.reader-tools__label {
-  margin-right: 8px;
+.reader-tools__group-label {
+  margin: 0 4px;
   color: rgba(75, 61, 46, 0.64);
   font-size: 11px;
   font-weight: 700;
@@ -1538,13 +1494,6 @@
   color: var(--accent-ink);
 }
 
-.reader-tools__divider {
-  width: 1px;
-  height: 22px;
-  margin: 0 6px;
-  background: rgba(112, 87, 59, 0.18);
-}
-
 @media (max-width: 620px) {
   .reader-tools {
     max-width: calc(100vw - 20px);
@@ -1552,8 +1501,9 @@
     padding-left: 6px;
   }
 
-  .reader-tools__label {
-    margin-right: 4px;
+  .reader-tools__group-label {
+    margin-right: 2px;
+    margin-left: 2px;
   }
 
   .reader-tool {

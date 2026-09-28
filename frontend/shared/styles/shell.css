@@ -233,8 +233,10 @@
 .side-nav__toggle {
   position: absolute;
   z-index: 2;
-  top: 50%;
-  right: -17px;
+  top: auto;
+  bottom: 16px;
+  right: auto;
+  left: 19px;
   display: inline-flex;
   width: 34px;
   height: 34px;
@@ -245,7 +247,6 @@
   background: var(--surface);
   color: var(--ink-secondary);
   box-shadow: 0 4px 12px rgba(18, 61, 55, 0.12);
-  transform: translateY(-50%);
   transition:
     background-color var(--motion-fast) ease,
     border-color var(--motion-fast) ease,
@@ -267,7 +268,7 @@
 
 .side-nav__toggle:active:not(:disabled) {
   background: var(--accent-soft);
-  transform: translateY(-50%) scale(0.96);
+  transform: scale(0.96);
 }
 
 .side-nav.is-collapsed .side-nav__toggle {

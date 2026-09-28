@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faBook,
   faBold,
+  faChalkboardUser,
   faCircleInfo,
   faEraser,
   faHighlighter,
@@ -11,7 +12,7 @@ import {
   faList,
   faRotateLeft,
   faRotateRight,
-  faStar,
+  faWandMagicSparkles,
   faStrikethrough,
   faTriangleExclamation,
   faUnderline,
@@ -44,7 +45,7 @@ import type {
 import {parseMarkdownSection} from '../../services/textbook/markdown/parser';
 import { domId } from '../../shared/ids';
 import { toast } from '../../shared/ui';
-import { CodeFenceBlock } from './SandboxBlock';
+import { CodeFenceBlock } from './sandbox/SandboxBlock';
 import { TutorDrawer } from './TutorDrawer';
 import type {
   AnnotationStyle,
@@ -78,10 +79,11 @@ interface AnnotationHistory {
 }
 
 const calloutMeta = {
-  info: { icon: faCircleInfo, label: '说明' },
-  tip: { icon: faLightbulb, label: '提示' },
-  warning: { icon: faTriangleExclamation, label: '注意' },
+  info: { icon: faCircleInfo },
+  tip: { icon: faLightbulb },
+  warning: { icon: faTriangleExclamation },
 };
+const headingTags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const;
 
 function annotationClassName(annotations: TextAnnotation[]) {
   return annotations
@@ -250,7 +252,7 @@ function renderInlineNodes(
         const start = cursor.offset;
         cursor.offset += node.value.length;
         return (
-          <code key={key} className="reader-inline-code">
+          <code key={key} className="reader-inline-code type-role-inline-code">
             {renderAnnotatedText(node.value, start, locatedAnnotations)}
           </code>
         );
@@ -319,14 +321,11 @@ function ProseBlockView({
 
 function HeadingBlockView({ block }: { block: HeadingBlock }) {
   const id = domId('learning', 'content-heading', block.id);
-  return block.level === 2 ? (
-    <h3 id={id} className="reader-heading is-level-2">
+  const Heading = headingTags[block.level - 1];
+  return (
+    <Heading id={id} className={`reader-heading type-role-heading-h${block.level}`}>
       {block.title}
-    </h3>
-  ) : (
-    <h4 id={id} className="reader-heading is-level-3">
-      {block.title}
-    </h4>
+    </Heading>
   );
 }
 
@@ -334,13 +333,12 @@ function CalloutBlockView({ block }: { block: CalloutBlock }) {
   const meta = calloutMeta[block.tone];
   const Icon = meta.icon;
   return (
-    <aside className={`reader-callout is-${block.tone}`}>
+    <aside className={`reader-callout type-role-callout is-${block.tone}`}>
       <span className="reader-callout__icon">
         <FontAwesomeIcon icon={Icon} style={{ fontSize: 18 }} />
       </span>
       <div>
-        <span>{meta.label}</span>
-        <h4>{block.title}</h4>
+        <h4 className="type-role-callout-title">{block.title}</h4>
         <p>
           {renderInlineNodes(block.body, [], block.id, { offset: 0 })}
         </p>
@@ -364,7 +362,7 @@ function ListBlockView({ block }: { block: ListBlock }) {
 
 function QuoteBlockView({ block }: { block: QuoteBlock }) {
   return (
-    <blockquote className="reader-quote">
+    <blockquote className="reader-quote type-role-quote">
       {block.children.map((paragraph, index) => (
         <p key={`${block.id}-quote-${index}`}>
           {renderInlineNodes(
@@ -383,7 +381,7 @@ function TableBlockView({ block }: { block: TableBlock }) {
   const align = (index: number) => block.align[index] ?? 'left';
   return (
     <div className="reader-table-wrap">
-      <table className="reader-table">
+      <table className="reader-table type-role-table">
         <thead>
           <tr>
             {block.header.map((cell, index) => (
@@ -422,18 +420,18 @@ function TableBlockView({ block }: { block: TableBlock }) {
 function FormulaBlockView({ block }: { block: FormulaBlock }) {
   const result = renderKatex(block.expression, block.displayMode);
   return (
-    <figure className="reader-formula">
+    <figure className="reader-formula type-role-formula">
       {result.error ? (
-        <code className="reader-formula__source">{block.source}</code>
+        <code className="reader-formula__source type-role-formula-source">{block.source}</code>
       ) : (
         <div
           className="reader-formula__math"
           dangerouslySetInnerHTML={{ __html: result.html }}
         />
       )}
-      {block.caption && <figcaption>{block.caption}</figcaption>}
+      {block.caption && <figcaption className="type-role-caption">{block.caption}</figcaption>}
       {result.error && (
-        <p className="reader-formula__error" role="alert">
+        <p className="reader-formula__error type-role-warning" role="alert">
           公式渲染失败：{result.error}
         </p>
       )}
@@ -445,9 +443,9 @@ function MermaidBlockView({ block }: { block: MermaidBlock }) {
   return (
     <figure className="reader-mermaid" data-annotation-disabled="true">
       <pre>
-        <code>{block.code}</code>
+        <code className="type-role-code">{block.code}</code>
       </pre>
-      <figcaption>Mermaid 渲染器待接入，当前保留源码。</figcaption>
+      <figcaption className="type-role-caption">Mermaid 渲染器待接入，当前保留源码。</figcaption>
     </figure>
   );
 }
@@ -463,10 +461,10 @@ function HtmlBlockView({ block }: { block: HtmlBlock }) {
 
 function UnsupportedBlockView({ block }: { block: UnsupportedBlock }) {
   return (
-    <aside className="reader-unsupported" role="status">
-      <strong>{block.reason}</strong>
+    <aside className="reader-unsupported type-role-warning" role="status">
+      <strong className="type-role-warning-title">{block.reason}</strong>
       <pre>
-        <code>{block.source}</code>
+        <code className="type-role-code">{block.source}</code>
       </pre>
     </aside>
   );
@@ -533,8 +531,13 @@ function ContentBlockView({
 function SectionHeading({ section }: { section: ReaderChapter }) {
   return (
     <header className="reader-section-heading">
-      <h2 id={domId('learning', 'section-title', section.id)}>{section.title}</h2>
-      <p>{section.summary}</p>
+      <h2
+        id={domId('learning', 'section-title', section.id)}
+        className="type-role-chapter-title"
+      >
+        {section.title}
+      </h2>
+        <p className="type-role-summary">{section.summary}</p>
     </header>
   );
 }
@@ -590,9 +593,7 @@ function TextbookReader({
     selectedText?: string;
   } | null>(null);
   const [selectionMenu, setSelectionMenu] = useState<SelectionMenu | null>(null);
-  const [highlightPaletteOpen, setHighlightPaletteOpen] = useState(false);
   const [selectionClosing, setSelectionClosing] = useState(false);
-  const [highlightPaletteClosing, setHighlightPaletteClosing] = useState(false);
   const [annotations, setAnnotations] = useState<TextAnnotation[]>([]);
   const [readingTool, setReadingTool] = useState<ReadingTool>('read');
   const [keepReadingTool, setKeepReadingTool] = useState(false);
@@ -676,20 +677,9 @@ function TextbookReader({
 
   function closeSelectionMenu() {
     setSelectionClosing(true);
-    setHighlightPaletteClosing(true);
     window.setTimeout(() => {
       setSelectionMenu(null);
-      setHighlightPaletteOpen(false);
       setSelectionClosing(false);
-      setHighlightPaletteClosing(false);
-    }, 160);
-  }
-
-  function closeHighlightPalette() {
-    setHighlightPaletteClosing(true);
-    window.setTimeout(() => {
-      setHighlightPaletteOpen(false);
-      setHighlightPaletteClosing(false);
     }, 160);
   }
 
@@ -697,19 +687,11 @@ function TextbookReader({
     if (!selectionMenu) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      if (highlightPaletteOpen) {
-        closeHighlightPalette();
-      } else {
-        setSelectionClosing(true);
-        window.setTimeout(() => {
-          setSelectionMenu(null);
-          setSelectionClosing(false);
-        }, 160);
-      }
+      closeSelectionMenu();
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [highlightPaletteOpen, selectionMenu]);
+  }, [selectionMenu]);
 
   useEffect(() => {
     function undoFromKeyboard() {
@@ -855,14 +837,12 @@ function TextbookReader({
   function applyToolToSelection(anchor: TextAnchor) {
     if (readingTool === 'eraser') {
       commitAnnotations(eraseAnnotations(annotations, anchor));
-      toast('已清理选区标记');
     } else {
       const style = annotationStyleForTool(readingTool, highlightColor);
       if (!style) return;
       commitAnnotations(
         applyAnnotation(annotations, anchor, style, Date.now()),
       );
-      toast('已更新阅读标记', { variant: 'success' });
     }
     if (!keepReadingTool) {
       setReadingTool('read');
@@ -897,8 +877,6 @@ function TextbookReader({
       anchor,
     });
     setSelectionClosing(false);
-    setHighlightPaletteOpen(false);
-    setHighlightPaletteClosing(false);
   }
 
   function askTutor() {
@@ -912,22 +890,6 @@ function TextbookReader({
     setDrawerPanel('tutor');
     closeSelectionMenu();
     window.getSelection()?.removeAllRanges();
-  }
-
-  function addAnnotation(style: AnnotationStyle) {
-    if (!selectionMenu) return;
-    const { anchor } = selectionMenu;
-    commitAnnotations(applyAnnotation(annotations, anchor, style, Date.now()));
-    toast('已更新阅读标记', { variant: 'success' });
-  }
-
-  function clearAnnotations() {
-    if (!selectionMenu) return;
-    const { anchor } = selectionMenu;
-    commitAnnotations(eraseAnnotations(annotations, anchor));
-    closeSelectionMenu();
-    window.getSelection()?.removeAllRanges();
-    toast('已取消阅读标记');
   }
 
   const outlineContent = asidePanel === 'contents' ? (
@@ -1011,7 +973,7 @@ function TextbookReader({
       >
         <article
           ref={articleRef}
-          className={`card reader-article motion-enter motion-delay-2 is-tool-${readingTool}`}
+          className={`card reader-article type-role-body motion-enter motion-delay-2 is-tool-${readingTool}`}
           onMouseDown={() => {
             if (selectionMenu) closeSelectionMenu();
           }}
@@ -1024,43 +986,62 @@ function TextbookReader({
             aria-label="阅读工具"
             style={readerToolsCenter === null ? undefined : { left: readerToolsCenter }}
           >
-            <span className="reader-tools__label">工具</span>
-            {(['highlight', 'underline', 'strike', 'bold', 'eraser'] as ReadingTool[]).map(
-              (tool) => (
-                <button
-                  key={tool}
-                  type="button"
-                  id={`learning-tool-${tool}`}
-                  className={`button button--secondary reader-tool is-${tool}`}
-                  aria-label={readingToolLabels[tool]}
-                  aria-pressed={readingTool === tool}
-                  title={`${readingToolLabels[tool]} (${readingToolShortcuts[tool]})`}
-                  onClick={() => {
-                    setReadingTool(tool);
-                    setKeepReadingTool(false);
-                    closeSelectionMenu();
-                  }}
-                >
-                  {tool === 'highlight' ? <FontAwesomeIcon icon={faHighlighter} /> : null}
-                  {tool === 'eraser' ? <FontAwesomeIcon icon={faEraser} /> : null}
-                  {tool === 'underline' ? <FontAwesomeIcon icon={faUnderline} /> : null}
-                  {tool === 'bold' ? <FontAwesomeIcon icon={faBold} /> : null}
-                  {tool === 'strike' ? <FontAwesomeIcon icon={faStrikethrough} /> : null}
-                </button>
-              ),
-            )}
-            <button
-              type="button"
-              id="learning-tool-keep"
-              className="button button--secondary reader-tool reader-tool--keep"
-              aria-label="持续保持工具"
-              aria-pressed={keepReadingTool}
-              title={`持续保持工具 (${keepReadingTool ? '已开启' : '点击开启'})`}
-              onClick={() => setKeepReadingTool((current) => !current)}
-            >
-              keep
-            </button>
-            <span className="reader-tools__divider" aria-hidden="true" />
+            <div className="reader-tools__group" role="group" aria-label="美化工具">
+              {(['highlight', 'underline', 'strike', 'bold', 'eraser'] as ReadingTool[]).map(
+                (tool) => (
+                  <button
+                    key={tool}
+                    type="button"
+                    id={`learning-tool-${tool}`}
+                    className={`button button--secondary reader-tool is-${tool}`}
+                    aria-label={readingToolLabels[tool]}
+                    aria-pressed={readingTool === tool}
+                    title={`${readingToolLabels[tool]} (${readingToolShortcuts[tool]})`}
+                    onClick={() => {
+                      setReadingTool(tool);
+                      setKeepReadingTool(false);
+                      closeSelectionMenu();
+                    }}
+                  >
+                    {tool === 'highlight' ? <FontAwesomeIcon icon={faHighlighter} /> : null}
+                    {tool === 'eraser' ? <FontAwesomeIcon icon={faEraser} /> : null}
+                    {tool === 'underline' ? <FontAwesomeIcon icon={faUnderline} /> : null}
+                    {tool === 'bold' ? <FontAwesomeIcon icon={faBold} /> : null}
+                    {tool === 'strike' ? <FontAwesomeIcon icon={faStrikethrough} /> : null}
+                  </button>
+                ),
+              )}
+              {readingTool === 'highlight' && (
+                <div className="reader-tools__colors" aria-label="高亮颜色">
+                  {(['green', 'yellow', 'sky', 'pink', 'orange'] as HighlightColor[]).map(
+                    (color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        id={`learning-tool-color-${color}`}
+                        className={`button selection-color is-${color} ${highlightColor === color ? 'is-selected' : ''}`}
+                        aria-label={`${color} 高亮颜色`}
+                        aria-pressed={highlightColor === color}
+                        title={`${color} 高亮颜色`}
+                        onClick={() => setHighlightColor(color)}
+                      />
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="reader-tools__group" role="group" aria-label="操作">
+              <button
+                type="button"
+                id="learning-tool-keep"
+                className="button button--secondary reader-tool reader-tool--keep"
+                aria-label="持续保持工具"
+                aria-pressed={keepReadingTool}
+                title={`持续保持工具 (${keepReadingTool ? '已开启' : '点击开启'})`}
+                onClick={() => setKeepReadingTool((current) => !current)}
+              >
+                keep
+              </button>
             <button
               type="button"
               id="learning-annotation-undo"
@@ -1083,24 +1064,7 @@ function TextbookReader({
             >
               <FontAwesomeIcon icon={faRotateRight} />
             </button>
-            {readingTool === 'highlight' && (
-              <div className="reader-tools__colors" aria-label="高亮颜色">
-                {(['green', 'yellow', 'sky', 'pink', 'orange'] as HighlightColor[]).map(
-                  (color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      id={`learning-tool-color-${color}`}
-                      className={`button selection-color is-${color} ${highlightColor === color ? 'is-selected' : ''}`}
-                      aria-label={`${color} 高亮颜色`}
-                      aria-pressed={highlightColor === color}
-                      title={`${color} 高亮颜色`}
-                      onClick={() => setHighlightColor(color)}
-                    />
-                  ),
-                )}
-              </div>
-            )}
+            </div>
           </div>
 
           <SectionHeading section={selected} />
@@ -1118,7 +1082,7 @@ function TextbookReader({
             ))}
           </div>
           {parsedSection.warnings.length > 0 && (
-            <div className="reader-parse-warnings" role="status">
+            <div className="reader-parse-warnings type-role-warning" role="status">
               {parsedSection.warnings.map((warning, index) => (
                 <p key={`${warning.rule}-${index}`}>{warning.message}</p>
               ))}
@@ -1145,7 +1109,7 @@ function TextbookReader({
             title="导师"
             onClick={() => handleUtilityAction('tutor')}
           >
-            <FontAwesomeIcon icon={faStar} style={{ fontSize: 18 }} />
+            <FontAwesomeIcon icon={faChalkboardUser} style={{ fontSize: 18 }} />
             <span>导师</span>
           </button>
           <button
@@ -1210,95 +1174,7 @@ function TextbookReader({
             title="询问 AI"
             onClick={askTutor}
           >
-            <FontAwesomeIcon icon={faStar} style={{ fontSize: 15 }} />
-          </button>
-          <button
-            type="button"
-            id="learning-selection-highlight"
-            className="button button--secondary selection-toolbar__button"
-            aria-label="文字高亮"
-            title="文字高亮"
-            aria-expanded={highlightPaletteOpen}
-            onClick={() => {
-              if (highlightPaletteOpen) {
-                closeHighlightPalette();
-              } else {
-                setHighlightPaletteOpen(true);
-              }
-            }}
-          >
-            <FontAwesomeIcon icon={faHighlighter} style={{ fontSize: 15 }} />
-          </button>
-
-          {highlightPaletteOpen && (
-            <div
-              className={`floating-surface selection-toolbar__palette ${
-                highlightPaletteClosing ? 'is-closing' : ''
-              }`}
-            >
-              {(['green', 'yellow', 'sky', 'pink', 'orange'] as HighlightColor[]).map(
-                (color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    id={`learning-annotation-highlight-${color}`}
-                    className={`button button--secondary selection-color is-${color}`}
-                    aria-label={`${color} 高亮`}
-                    title={`${color} 高亮`}
-                    onClick={() => {
-                      setHighlightColor(color);
-                      addAnnotation({ type: 'highlight', color });
-                    }}
-                  />
-                ),
-              )}
-            </div>
-          )}
-
-          <button
-            type="button"
-            id="learning-annotation-underline"
-            className="button button--secondary selection-format"
-            onClick={() => addAnnotation({ type: 'underline' })}
-          >
-            U
-          </button>
-          <button
-            type="button"
-            id="learning-annotation-bold"
-            className="button button--secondary selection-format is-bold"
-            onClick={() => addAnnotation({ type: 'bold' })}
-          >
-            B
-          </button>
-          <button
-            type="button"
-            id="learning-annotation-strike"
-            className="button button--secondary selection-format is-strike"
-            onClick={() => addAnnotation({ type: 'strike' })}
-          >
-            S
-          </button>
-          <button
-            type="button"
-            id="learning-annotation-anchor"
-            className="button button--secondary selection-format"
-            onClick={() => {
-              toast('Anchor 交互模型后续讨论');
-              closeSelectionMenu();
-            }}
-          >
-            #
-          </button>
-          <button
-            type="button"
-            id="learning-annotation-clear"
-            className="button button--secondary selection-format"
-            aria-label="取消标注"
-            title="取消标注"
-            onClick={clearAnnotations}
-          >
-            <FontAwesomeIcon icon={faEraser} style={{ fontSize: 15 }} />
+            <FontAwesomeIcon icon={faWandMagicSparkles} style={{ fontSize: 15 }} />
           </button>
         </div>
       )}

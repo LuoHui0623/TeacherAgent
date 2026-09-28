@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { findMarkdownFixture, markdownFixtures, markdownRequirements } from '../mocks/markdown/fixtures';
+import { findMarkdownFixture, markdownFixtures, markdownRequirements } from '../mocks/textbook/fixtures';
 import { getTextbookDocument } from '../mocks/textbooks';
 import { getReaderChapters } from '../services/textbook/chapterModel';
 import { parseMarkdownSection } from '../services/textbook/markdown/parser';
@@ -30,7 +30,7 @@ describe('markdown rendering pipeline', () => {
     const codeBlocks = blocks.filter((block) => block.type === 'code');
 
     expect(codeBlocks[0].runtime?.id).toBe('javascript');
-    expect(codeBlocks[1].runtime).toBeUndefined();
+    expect(codeBlocks[1].runtime?.id).toBe('python');
     expect(codeBlocks[2].runtime).toBeUndefined();
   });
 
@@ -52,4 +52,5 @@ describe('markdown rendering pipeline', () => {
       expect.objectContaining({ level: 3, title: '一个概念' }),
     ]);
   });
+
 });

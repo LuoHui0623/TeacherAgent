@@ -14,6 +14,12 @@ export const sandboxRuntimeRegistry: SandboxRuntimeDefinition[] = [
     languages: ['javascript', 'js'],
     defaultEntry: 'main.js',
   },
+  {
+    id: 'python',
+    label: 'Python',
+    languages: ['python', 'py'],
+    defaultEntry: 'main.py',
+  },
 ];
 
 export function getCodeRuntimeCapability(

@@ -45,7 +45,7 @@ export interface ProseBlock extends MarkdownBlockBase {
 
 export interface HeadingBlock extends MarkdownBlockBase {
   type: 'heading';
-  level: 2 | 3;
+  level: 1 | 2 | 3 | 4 | 5 | 6;
   title: string;
 }
 
@@ -83,7 +83,7 @@ export interface FormulaBlock extends MarkdownBlockBase {
 }
 
 export interface CodeRuntimeCapability {
-  id: 'javascript';
+  id: 'javascript' | 'python';
   label: string;
   entry: string;
 }

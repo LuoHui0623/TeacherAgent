@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCheckCircle,
@@ -9,12 +8,14 @@ import {
   faCode,
   faFlask,
   faPlay,
+  faRotateLeft,
   faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons';
 
-import type { CodeBlock } from '../../services/textbook/types';
-import { domId } from '../../shared/ids';
-import { SegmentedControl, toast } from '../../shared/ui';
+import type { CodeBlock } from '../../../services/textbook/types';
+import { domId } from '../../../shared/ids';
+import { SegmentedControl, toast } from '../../../shared/ui';
+import { highlightCode } from './languageRules';
 
 type CodeFenceData = CodeBlock;
 type CodeMode = 'fence' | 'sandbox';
@@ -27,48 +28,47 @@ interface WorkerMessage {
 }
 
 const RUN_TIMEOUT_MS = 1500;
-const JAVASCRIPT_KEYWORDS = new Set([
-  'async',
-  'await',
-  'break',
-  'case',
-  'catch',
-  'class',
-  'const',
-  'continue',
-  'default',
-  'do',
-  'else',
-  'export',
-  'extends',
-  'false',
-  'finally',
-  'for',
-  'from',
-  'function',
-  'if',
-  'import',
-  'in',
-  'instanceof',
-  'let',
-  'new',
-  'null',
-  'of',
-  'return',
-  'switch',
-  'throw',
-  'true',
-  'try',
-  'typeof',
-  'undefined',
-  'var',
-  'while',
-  'yield',
-]);
-const CODE_TOKEN_PATTERN =
-  /\/\/[^\n]*|\/\*[\s\S]*?\*\/|`(?:\\[\s\S]|[^`])*`|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*\b/g;
+const PYTHON_RUN_TIMEOUT_MS = 60000;
 
-function buildWorkerSource(code: string): string {
+function buildWorkerSource(code: string, runtimeId: string): string {
+  if (runtimeId === 'python') {
+    return `
+let pyodidePromise;
+let pyodide;
+
+async function getPyodide() {
+  if (!pyodidePromise) {
+    const pyodideUrl = new URL('/pyodide/pyodide.mjs', self.location.origin).href;
+    const indexURL = new URL('/pyodide/', self.location.origin).href;
+    pyodidePromise = import(pyodideUrl).then(({ loadPyodide }) => loadPyodide({ indexURL }));
+  }
+  try {
+    pyodide = await pyodidePromise;
+    return pyodide;
+  } catch (error) {
+    pyodidePromise = undefined;
+    throw error;
+  }
+}
+
+self.onmessage = async (event) => {
+  const logs = [];
+  try {
+    const runtime = await getPyodide();
+    runtime.setStdout({ batched: (message) => logs.push(message) });
+    runtime.setStderr({ batched: (message) => logs.push(message) });
+    await runtime.runPythonAsync(event.data.code, { filename: 'main.py' });
+    self.postMessage({ type: 'result', logs });
+  } catch (error) {
+    self.postMessage({
+      type: 'error',
+      logs,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+};`;
+  }
+
   return `
 self.onmessage = () => {
   const logs = [];
@@ -98,52 +98,6 @@ self.onmessage = () => {
 };`;
 }
 
-function highlightCode(code: string, language: string): ReactNode[] {
-  if (!['javascript', 'js', 'typescript', 'ts'].includes(language.toLowerCase())) {
-    return [code];
-  }
-
-  const nodes: ReactNode[] = [];
-  let lastIndex = 0;
-  for (const match of code.matchAll(CODE_TOKEN_PATTERN)) {
-    const index = match.index ?? 0;
-    const token = match[0];
-    if (index > lastIndex) nodes.push(code.slice(lastIndex, index));
-
-    let className = '';
-    if (token.startsWith('//') || token.startsWith('/*')) {
-      className = 'code-token--comment';
-    } else if (
-      token.startsWith('`') ||
-      token.startsWith("'") ||
-      token.startsWith('"')
-    ) {
-      className = 'code-token--string';
-    } else if (/^\d/.test(token)) {
-      className = 'code-token--number';
-    } else if (JAVASCRIPT_KEYWORDS.has(token)) {
-      className = 'code-token--keyword';
-    } else if (/^\s*\(/.test(code.slice(index + token.length))) {
-      className = 'code-token--function';
-    } else if (/^[A-Z]/.test(token)) {
-      className = 'code-token--type';
-    }
-
-    nodes.push(
-      className ? (
-        <span key={`${index}-${token}`} className={className}>
-          {token}
-        </span>
-      ) : (
-        token
-      ),
-    );
-    lastIndex = index + token.length;
-  }
-  if (lastIndex < code.length) nodes.push(code.slice(lastIndex));
-  return nodes;
-}
-
 function CodeEditorSurface({
   code,
   language,
@@ -165,12 +119,12 @@ function CodeEditorSurface({
 
   return (
     <div className={`code-fence__editor ${editable ? 'is-editable' : 'is-preview'}`}>
-      <pre ref={highlightRef} className="code-fence__highlight" aria-hidden="true">
-        <code>{highlighted}</code>
+      <pre ref={highlightRef} className="code-fence__highlight type-role-code" aria-hidden="true">
+        <code className="type-role-code">{highlighted}</code>
       </pre>
       <textarea
         ref={textareaRef}
-        className="code-fence__input"
+        className="code-fence__input type-role-code"
         value={code}
         readOnly={!editable}
         onChange={(event) => onChange(event.target.value)}
@@ -231,16 +185,22 @@ export function CodeFenceBlock({
   useEffect(() => stopWorker, []);
 
   function run() {
-    stopWorker();
+    if (runState === 'running') return;
+    const runtimeId = block.runtime?.id ?? 'javascript';
+    const isPython = runtimeId === 'python';
+    if (!isPython) stopWorker();
     setOutput([]);
     setRunState('running');
 
-    const objectUrl = URL.createObjectURL(
-      new Blob([buildWorkerSource(code)], { type: 'text/javascript' }),
-    );
-    urlRef.current = objectUrl;
-    const worker = new Worker(objectUrl);
-    workerRef.current = worker;
+    let worker = workerRef.current;
+    if (!worker) {
+      const objectUrl = URL.createObjectURL(
+        new Blob([buildWorkerSource(code, runtimeId)], { type: 'text/javascript' }),
+      );
+      urlRef.current = objectUrl;
+      worker = new Worker(objectUrl, { type: isPython ? 'module' : 'classic' });
+      workerRef.current = worker;
+    }
 
     worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
       const message = event.data;
@@ -249,7 +209,7 @@ export function CodeFenceBlock({
       if (message.type === 'error' && message.message) {
         setOutput((current) => [...current, message.message ?? '运行失败']);
       }
-      stopWorker();
+      if (!isPython) stopWorker();
     };
 
     worker.onerror = (event) => {
@@ -258,13 +218,14 @@ export function CodeFenceBlock({
       stopWorker();
     };
 
+    const timeoutMs = isPython ? PYTHON_RUN_TIMEOUT_MS : RUN_TIMEOUT_MS;
     timeoutRef.current = window.setTimeout(() => {
-      setOutput((current) => [...current, `运行超过 ${RUN_TIMEOUT_MS}ms，已停止。`]);
+      setOutput((current) => [...current, `运行超过 ${timeoutMs}ms，已停止。`]);
       setRunState('error');
       stopWorker();
-    }, RUN_TIMEOUT_MS);
+    }, timeoutMs);
 
-    worker.postMessage('run');
+    worker.postMessage(isPython ? { code } : 'run');
   }
 
   function changeMode(nextMode: CodeMode) {
@@ -275,6 +236,13 @@ export function CodeFenceBlock({
 
     stopWorker();
     setMode('fence');
+  }
+
+  function reset() {
+    stopWorker();
+    setCode(starterCode);
+    setOutput([]);
+    setRunState('idle');
   }
 
   async function copyCode() {
@@ -347,22 +315,35 @@ export function CodeFenceBlock({
           <div className="code-fence__output">
             <div className="code-fence__pane-bar">
               <span>Output</span>
-              <span
-                className={`code-fence__status is-${runState}`}
-                title={statusLabel}
-                aria-label={statusLabel}
-              >
-                {runState === 'idle' && <FontAwesomeIcon icon={faCircle} style={{ fontSize: 13 }} />}
-                {runState === 'running' && (
-                  <FontAwesomeIcon className="spin-soft" icon={faCircleNotch} style={{ fontSize: 13 }} />
-                )}
-                {runState === 'success' && (
-                  <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: 13 }} />
-                )}
-                {runState === 'error' && (
-                  <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 13 }} />
-                )}
-              </span>
+              <div className="code-fence__output-actions">
+                <span
+                  className={`code-fence__status is-${runState}`}
+                  title={statusLabel}
+                  aria-label={statusLabel}
+                >
+                  {runState === 'idle' && <FontAwesomeIcon icon={faCircle} style={{ fontSize: 13 }} />}
+                  {runState === 'running' && (
+                    <FontAwesomeIcon className="spin-soft" icon={faCircleNotch} style={{ fontSize: 13 }} />
+                  )}
+                  {runState === 'success' && (
+                    <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: 13 }} />
+                  )}
+                  {runState === 'error' && (
+                    <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 13 }} />
+                  )}
+                </span>
+                <button
+                  type="button"
+                  id={domId('learning', 'code', 'reset', instanceId)}
+                  className="code-fence__reset"
+                  onClick={reset}
+                  disabled={code === starterCode && output.length === 0 && runState === 'idle'}
+                  title="重置代码和运行结果"
+                  aria-label="重置代码和运行结果"
+                >
+                  <FontAwesomeIcon icon={faRotateLeft} />
+                </button>
+              </div>
             </div>
             <pre>
               {output.length > 0

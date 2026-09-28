@@ -6,7 +6,7 @@ import {
   faChevronRight,
   faList,
   faArrowUp,
-  faStar,
+  faChalkboardUser,
   faUserCircle,
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -111,7 +111,7 @@ export function TutorDrawer({
               aria-pressed={activePanel === 'tutor'}
               onClick={() => onPanelChange('tutor')}
             >
-              <FontAwesomeIcon icon={faStar} />
+              <FontAwesomeIcon icon={faChalkboardUser} />
               <span>导师</span>
             </button>
             <button
@@ -156,7 +156,7 @@ export function TutorDrawer({
                 <div key={message.id} className={`tutor-message is-${message.role}`}>
                   <span>
                     {message.role === 'tutor' ? (
-                      <FontAwesomeIcon icon={faStar} style={{ fontSize: 14 }} />
+                      <FontAwesomeIcon icon={faChalkboardUser} style={{ fontSize: 14 }} />
                     ) : (
                       <FontAwesomeIcon icon={faUserCircle} style={{ fontSize: 14 }} />
                     )}
