@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  CaretDoubleRightIcon,
-  PaperPlaneTiltIcon,
-  SparkleIcon,
-  UserCircleIcon,
-} from '@phosphor-icons/react';
+  faBook,
+  faChevronRight,
+  faList,
+  faArrowUp,
+  faStar,
+  faUserCircle,
+} from '@fortawesome/free-solid-svg-icons';
 
 interface TutorContext {
   sectionTitle?: string;
@@ -15,9 +18,12 @@ interface TutorContext {
 
 interface TutorDrawerProps {
   open: boolean;
+  activePanel: 'tutor' | 'contents' | 'article';
   width: number;
   context: TutorContext | null;
   draft: string;
+  children?: ReactNode;
+  onPanelChange: (panel: 'tutor' | 'contents' | 'article') => void;
   onOpenChange: (open: boolean) => void;
   onWidthChange: (width: number) => void;
   onDraftChange: (value: string) => void;
@@ -33,9 +39,11 @@ let messageId = 1;
 
 export function TutorDrawer({
   open,
+  activePanel,
   width,
-  context,
   draft,
+  children,
+  onPanelChange,
   onOpenChange,
   onWidthChange,
   onDraftChange,
@@ -80,18 +88,6 @@ export function TutorDrawer({
 
   return (
     <aside className={`tutor-drawer ${open ? 'is-open' : 'is-collapsed'}`}>
-      <button
-        type="button"
-        id="learning-tutor-avatar"
-        className={`tutor-drawer__avatar ${open ? '' : 'button button--icon-ghost'}`}
-        aria-expanded={open}
-        aria-label={open ? '收回 Tutor' : '展开 Tutor'}
-        title={open ? '收回 Tutor' : '展开 Tutor'}
-        onClick={() => onOpenChange(!open)}
-      >
-        <SparkleIcon size={17} weight="fill" />
-      </button>
-
       <div
         className="tutor-drawer__panel"
         id="learning-tutor-panel"
@@ -106,13 +102,41 @@ export function TutorDrawer({
         />
 
         <header className="tutor-drawer__header">
-          <div>
-            <span className="tutor-drawer__avatar-slot" aria-hidden="true" />
-            <div>
-              <strong>Tutor</strong>
-              <small>Teacher Agent</small>
-            </div>
-          </div>
+          <nav className="tutor-drawer__tabs" aria-label="学习区导航">
+            <button
+              type="button"
+              id="learning-tutor-tab"
+              className={`tutor-drawer__tab ${activePanel === 'tutor' ? 'is-active' : ''}`}
+              aria-label="导师"
+              aria-pressed={activePanel === 'tutor'}
+              onClick={() => onPanelChange('tutor')}
+            >
+              <FontAwesomeIcon icon={faStar} />
+              <span>导师</span>
+            </button>
+            <button
+              type="button"
+              id="learning-contents-tab"
+              className={`tutor-drawer__tab ${activePanel === 'contents' ? 'is-active' : ''}`}
+              aria-label="目录"
+              aria-pressed={activePanel === 'contents'}
+              onClick={() => onPanelChange('contents')}
+            >
+              <FontAwesomeIcon icon={faBook} />
+              <span>目录</span>
+            </button>
+            <button
+              type="button"
+              id="learning-article-tab"
+              className={`tutor-drawer__tab ${activePanel === 'article' ? 'is-active' : ''}`}
+              aria-label="大纲"
+              aria-pressed={activePanel === 'article'}
+              onClick={() => onPanelChange('article')}
+            >
+              <FontAwesomeIcon icon={faList} />
+              <span>大纲</span>
+            </button>
+          </nav>
           <button
             type="button"
             id="learning-tutor-collapse"
@@ -121,62 +145,60 @@ export function TutorDrawer({
             title="收回 Tutor"
             onClick={() => onOpenChange(false)}
           >
-            <CaretDoubleRightIcon size={15} weight="bold" />
+            <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 15 }} />
           </button>
         </header>
 
-      <div className="tutor-drawer__messages">
-        {messages.map((message) => (
-          <div key={message.id} className={`tutor-message is-${message.role}`}>
-            <span>
-              {message.role === 'tutor' ? (
-                <SparkleIcon size={14} weight="fill" />
-              ) : (
-                <UserCircleIcon size={14} weight="fill" />
-              )}
-            </span>
-            <p>{message.content}</p>
-          </div>
-        ))}
-      </div>
+        {activePanel === 'tutor' ? (
+          <div className="tutor-drawer__body">
+            <div className="tutor-drawer__messages">
+              {messages.map((message) => (
+                <div key={message.id} className={`tutor-message is-${message.role}`}>
+                  <span>
+                    {message.role === 'tutor' ? (
+                      <FontAwesomeIcon icon={faStar} style={{ fontSize: 14 }} />
+                    ) : (
+                      <FontAwesomeIcon icon={faUserCircle} style={{ fontSize: 14 }} />
+                    )}
+                  </span>
+                  <p>{message.content}</p>
+                </div>
+              ))}
+            </div>
 
-      <div className="tutor-drawer__composer">
-        {context && (
-          <div className="tutor-context-chips">
-            {context.sectionTitle && <span>{context.sectionTitle}</span>}
-            {context.blockId && <span>{context.blockId}</span>}
-            {context.selectedText && (
-              <span title={context.selectedText}>“{context.selectedText}”</span>
-            )}
+            <div className="tutor-drawer__composer">
+              <textarea
+                id="learning-tutor-input"
+                rows={1}
+                value={draft}
+                onChange={(event) => onDraftChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                    event.preventDefault();
+                    send();
+                  }
+                }}
+                placeholder="向 Tutor 提问…"
+                aria-label="Tutor 输入框"
+              />
+              <div className="tutor-drawer__composer-actions">
+                <button
+                  type="button"
+                  id="learning-tutor-send"
+                  className="button button--primary tutor-drawer__send"
+                  disabled={!draft.trim()}
+                  aria-label="发送问题"
+                  title="发送问题"
+                  onClick={send}
+                >
+                  <FontAwesomeIcon icon={faArrowUp} style={{ fontSize: 16 }} />
+                </button>
+              </div>
+            </div>
           </div>
+        ) : (
+          <div className="tutor-drawer__body">{children}</div>
         )}
-        <textarea
-          id="learning-tutor-input"
-          value={draft}
-          onChange={(event) => onDraftChange(event.target.value)}
-          onKeyDown={(event) => {
-            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-              event.preventDefault();
-              send();
-            }
-          }}
-          placeholder="向 Tutor 提问…"
-          aria-label="Tutor 输入框"
-        />
-        <div className="tutor-drawer__composer-actions">
-          <span>Ctrl / Cmd + Enter</span>
-          <button
-            type="button"
-            id="learning-tutor-send"
-            className="button button--primary button--sm"
-            disabled={!draft.trim()}
-            onClick={send}
-          >
-            <PaperPlaneTiltIcon size={14} weight="fill" />
-            发送
-          </button>
-        </div>
-      </div>
       </div>
     </aside>
   );

@@ -1,107 +1,104 @@
+/// <reference types="vite/client" />
+
 import type {
   TextbookChapter,
   TextbookDocument,
   TextbookSummary,
 } from '../services/textbook/types';
 
-export const textbookCatalog: TextbookSummary[] = [
-  {
-    id: 'calculus',
-    title: '微积分',
-    subtitle: '从变化到模型',
-    category: '数学',
-    code: 'MATH 01',
-    edition: '2026',
-    chapterCount: 12,
-    progress: 68,
-    status: 'learning',
-    theme: 'jade',
-  },
-  {
-    id: 'linear-algebra',
-    title: '线性代数',
-    subtitle: '向量、空间与几何直觉',
-    category: '数学',
-    code: 'MATH 02',
-    edition: '2026',
-    chapterCount: 10,
-    progress: 42,
-    status: 'learning',
-    theme: 'navy',
-  },
-  {
-    id: 'probability',
-    title: '概率统计',
-    subtitle: '不确定性的语言',
-    category: '数学',
-    code: 'MATH 03',
-    edition: '2026',
-    chapterCount: 9,
-    progress: 73,
-    status: 'learning',
-    theme: 'sky',
-  },
-  {
-    id: 'physics',
-    title: '大学物理',
-    subtitle: '力学与波',
-    category: '物理',
-    code: 'PHYS 01',
-    edition: '2026',
-    chapterCount: 11,
-    progress: 18,
-    status: 'queued',
-    theme: 'slate',
-  },
-  {
-    id: 'python',
-    title: 'Python',
-    subtitle: '程序设计基础',
-    category: '计算机',
-    code: 'CS 01',
-    edition: '2026',
-    chapterCount: 14,
-    progress: 86,
-    status: 'learning',
-    theme: 'coral',
-  },
-  {
-    id: 'artificial-intelligence',
-    title: '人工智能',
-    subtitle: '从搜索到学习',
-    category: '人工智能',
-    code: 'AI 01',
-    edition: '2026',
-    chapterCount: 12,
-    progress: 24,
-    status: 'queued',
-    theme: 'amber',
-  },
-  {
-    id: 'data-structures',
-    title: '数据结构',
-    subtitle: '抽象、实现与算法',
-    category: '计算机',
-    code: 'CS 02',
-    edition: '2026',
-    chapterCount: 16,
-    progress: 55,
-    status: 'learning',
-    theme: 'plum',
-  },
-  {
-    id: 'cognitive-psychology',
-    title: '认知心理学',
-    subtitle: '注意、记忆与思考',
-    category: '心理',
-    code: 'PSY 01',
-    edition: '2026',
-    chapterCount: 10,
-    progress: 0,
-    status: 'ready',
-    theme: 'indigo',
-  },
-];
+interface ChapterMetadata {
+  id: string;
+  title: string;
+  summary: string;
+}
+
+interface TextbookMetadata extends TextbookSummary {
+  publishedAt: string;
+  revisedAt: string;
+  revision: string;
+  chapters: ChapterMetadata[];
+}
+
+const textbookMetadataFiles = import.meta.glob('./textbook/**/textbook.json', {
+  eager: true,
+  import: 'default',
+}) as Record<string, TextbookMetadata>;
+const markdownSources = import.meta.glob('./textbook/**/*.md', {
+  eager: true,
+  import: 'default',
+  query: '?raw',
+}) as Record<string, string>;
+
+const textbookBooks = Object.entries(textbookMetadataFiles).map(([metadataPath, metadata]) => ({
+  directory: metadataPath.slice('./textbook/'.length, -'/textbook.json'.length),
+  metadata,
+}));
+
+function chapterPrefix(directory: string, chapterId: string) {
+  return `./textbook/${directory}/chapters/${chapterId}_`;
+}
+
+function validateGeneratedContent() {
+  const errors: string[] = [];
+  const bookIds = textbookBooks.map(({ metadata }) => metadata.id);
+  const duplicateBookIds = bookIds.filter((id, index) => bookIds.indexOf(id) !== index);
+  if (duplicateBookIds.length) {
+    errors.push(`教材 id 重复：${[...new Set(duplicateBookIds)].join(', ')}`);
+  }
+  textbookBooks.forEach(({ directory, metadata }) => {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(metadata.id)) {
+      errors.push(`教材 id 必须为 UUID：${directory}/textbook.json`);
+    }
+    if (!/^(0|[1-9]\d*)\.([1-9]\d*)\.(0|[1-9]\d*)$/.test(metadata.revision)) {
+      errors.push(`教材 revision 必须符合 N.N.N，且发布版本从 1 开始：${directory}/textbook.json`);
+    }
+  });
+
+  const declaredFiles = new Set<string>();
+  textbookBooks.forEach(({ directory, metadata }) => {
+    metadata.chapters.forEach((chapter, index) => {
+      const expectedId = String(index + 1).padStart(2, '0');
+      if (!/^\d{2}$/.test(chapter.id) || chapter.id !== expectedId) {
+        errors.push(`章节 id 必须为连续两位数字序号：${directory}/chapters/${chapter.id}`);
+      }
+
+      const matchingFiles = Object.keys(markdownSources).filter((fileName) =>
+        fileName.startsWith(chapterPrefix(directory, chapter.id)),
+      );
+      if (matchingFiles.length !== 1) {
+        errors.push(`章节文件必须且只能匹配一个 id 前缀：${directory}/chapters/${chapter.id}_`);
+      }
+      matchingFiles.forEach((fileName) => declaredFiles.add(fileName));
+    });
+  });
+
+  const sourceFiles = Object.keys(markdownSources);
+  const undeclaredFiles = sourceFiles.filter((fileName) => !declaredFiles.has(fileName));
+  const missingFiles = [...declaredFiles].filter((fileName) => !sourceFiles.includes(fileName));
+
+  if (undeclaredFiles.length) errors.push(`未登记教材文件：${undeclaredFiles.join(', ')}`);
+  if (missingFiles.length) errors.push(`缺少教材文件：${missingFiles.join(', ')}`);
+
+  if (errors.length) {
+    throw new Error(errors.join('；'));
+  }
+}
+
+validateGeneratedContent();
+
+function toTextbookSummary(metadata: TextbookMetadata): TextbookSummary {
+  return {
+    id: metadata.id,
+    title: metadata.title,
+    subtitle: metadata.subtitle,
+    category: metadata.category,
+    status: metadata.status,
+  };
+}
+
+export const textbookCatalog: TextbookSummary[] = textbookBooks.map(({ metadata }) =>
+  toTextbookSummary(metadata),
+);
 
 const calculusChapters: TextbookChapter[] = [
   {
@@ -299,6 +296,19 @@ ${'```'}`,
   },
 ];
 
+function getGeneratedChapters(directory: string, chapters: ChapterMetadata[]): TextbookChapter[] {
+  return chapters.map((chapter) => ({
+    id: chapter.id,
+    title: chapter.title,
+    summary: chapter.summary,
+    markdown: markdownSources[
+      Object.keys(markdownSources).find((fileName) =>
+        fileName.startsWith(chapterPrefix(directory, chapter.id)),
+      ) ?? ''
+    ],
+  }));
+}
+
 function buildStarterChapters(summary: TextbookSummary): TextbookChapter[] {
   return [
     {
@@ -356,21 +366,42 @@ ${'```'}`,
   ];
 }
 
+function toMarkdownChapters(chapters: TextbookChapter[]): TextbookChapter[] {
+  return chapters.flatMap((chapter) => {
+    if (typeof chapter.markdown === 'string') return [chapter];
+    return (chapter.sections ?? []).map((section) => ({
+      id: section.id,
+      title: section.title,
+      summary: section.summary,
+      markdown: section.markdown,
+    }));
+  });
+}
+
 const documents: Record<string, TextbookDocument> = Object.fromEntries(
-  textbookCatalog.map((summary) => [
-    summary.id,
+  textbookBooks.map(({ directory, metadata }) => [
+    metadata.id,
     {
-      ...summary,
-      version: '0.2.0-markdown-demo',
-      chapters: summary.id === 'calculus' ? calculusChapters : buildStarterChapters(summary),
+      ...toTextbookSummary(metadata),
+      version: metadata.revision,
+      chapters: toMarkdownChapters(
+        directory === 'calculus'
+          ? calculusChapters
+          : metadata.chapters.length
+            ? getGeneratedChapters(directory, metadata.chapters)
+            : buildStarterChapters(toTextbookSummary(metadata)),
+      ),
     },
   ]),
 );
 
 export function getTextbookDocument(textbookId: string): TextbookDocument {
-  return documents[textbookId] ?? documents.calculus;
+  const defaultTextbookId =
+    textbookBooks.find(({ directory }) => directory === 'calculus')?.metadata.id ??
+    textbookBooks[0].metadata.id;
+  return documents[textbookId] ?? documents[defaultTextbookId];
 }
 
 export function firstSectionId(document: TextbookDocument): string {
-  return document.chapters[0]?.sections[0]?.id ?? '';
+  return document.chapters[0]?.id ?? document.chapters[0]?.sections?.[0]?.id ?? '';
 }

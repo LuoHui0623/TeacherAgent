@@ -1,18 +1,21 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  BookOpenIcon,
-  BooksIcon,
-  CaretDownIcon,
-  CaretRightIcon,
-  ClockIcon,
-  EraserIcon,
-  HighlighterIcon,
-  InfoIcon,
-  LightbulbIcon,
-  SparkleIcon,
-  WarningIcon,
-} from '@phosphor-icons/react';
+  faBook,
+  faBold,
+  faCircleInfo,
+  faEraser,
+  faHighlighter,
+  faLightbulb,
+  faList,
+  faRotateLeft,
+  faRotateRight,
+  faStar,
+  faStrikethrough,
+  faTriangleExclamation,
+  faUnderline,
+} from '@fortawesome/free-solid-svg-icons';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
@@ -21,6 +24,7 @@ import {
   firstSectionId,
   getTextbookDocument,
 } from '../../mocks/textbooks';
+import { getReaderChapters, type ReaderChapter } from '../../services/textbook/chapterModel';
 import type {
   CalloutBlock,
   ContentBlock,
@@ -33,71 +37,51 @@ import type {
   MermaidBlock,
   ProseBlock,
   QuoteBlock,
-  SectionKind,
   TableBlock,
   TextbookDocument,
-  TextbookSection,
   UnsupportedBlock,
 } from '../../services/textbook/types';
-import {
-  parseMarkdownSection,
-} from '../../services/textbook/markdown/parser';
+import {parseMarkdownSection} from '../../services/textbook/markdown/parser';
 import { domId } from '../../shared/ids';
-import { SegmentedControl, toast } from '../../shared/ui';
+import { toast } from '../../shared/ui';
 import { CodeFenceBlock } from './SandboxBlock';
 import { TutorDrawer } from './TutorDrawer';
+import type {
+  AnnotationStyle,
+  HighlightColor,
+  LocatedAnnotation,
+  TextAnchor,
+  TextAnnotation,
+} from './annotations/annotationModel';
+import {
+  domRangeToTextAnchor,
+  locateAnnotations,
+} from './annotations/annotationRange';
+import {
+  annotationStyleForTool,
+  applyAnnotation,
+  eraseAnnotations,
+} from './tools/readingToolModel';
+import type { ReadingTool } from './tools/readingToolModel';
 import './LearningZoneModule.css';
-
-type HighlightColor = 'green' | 'yellow' | 'sky' | 'pink' | 'orange';
-type AnnotationStyle =
-  | { type: 'highlight'; color: HighlightColor }
-  | { type: 'underline' | 'bold' | 'strike' };
 
 interface SelectionMenu {
   x: number;
   y: number;
   text: string;
-  blockId: string;
+  anchor: TextAnchor;
 }
 
-interface TextAnnotation {
-  id: string;
-  blockId: string;
-  text: string;
-  style: AnnotationStyle;
+interface AnnotationHistory {
+  past: TextAnnotation[][];
+  future: TextAnnotation[][];
 }
-
-const sectionKindMeta: Record<SectionKind, { label: string; className: string }> = {
-  lesson: { label: '正文', className: 'is-lesson' },
-  sandbox: { label: '实验', className: 'is-sandbox' },
-  practice: { label: '练习', className: 'is-practice' },
-  review: { label: '复习', className: 'is-review' },
-};
 
 const calloutMeta = {
-  info: { icon: InfoIcon, label: '说明' },
-  tip: { icon: LightbulbIcon, label: '提示' },
-  warning: { icon: WarningIcon, label: '注意' },
+  info: { icon: faCircleInfo, label: '说明' },
+  tip: { icon: faLightbulb, label: '提示' },
+  warning: { icon: faTriangleExclamation, label: '注意' },
 };
-
-interface LocatedAnnotation {
-  annotation: TextAnnotation;
-  start: number;
-  end: number;
-  order: number;
-}
-
-function locateAnnotations(
-  plainText: string,
-  annotations: TextAnnotation[],
-): LocatedAnnotation[] {
-  return annotations.flatMap((annotation, order) => {
-    const start = plainText.indexOf(annotation.text);
-    return start < 0
-      ? []
-      : [{ annotation, start, end: start + annotation.text.length, order }];
-  });
-}
 
 function annotationClassName(annotations: TextAnnotation[]) {
   return annotations
@@ -352,7 +336,7 @@ function CalloutBlockView({ block }: { block: CalloutBlock }) {
   return (
     <aside className={`reader-callout is-${block.tone}`}>
       <span className="reader-callout__icon">
-        <Icon size={18} weight="duotone" />
+        <FontAwesomeIcon icon={Icon} style={{ fontSize: 18 }} />
       </span>
       <div>
         <span>{meta.label}</span>
@@ -546,17 +530,9 @@ function ContentBlockView({
     </div>
   );
 }
-function SectionHeading({ section }: { section: TextbookSection }) {
-  const kind = sectionKindMeta[section.kind];
+function SectionHeading({ section }: { section: ReaderChapter }) {
   return (
     <header className="reader-section-heading">
-      <div className="reader-section-heading__meta">
-        <span className={`section-kind ${kind.className}`}>{kind.label}</span>
-        <span>
-          <ClockIcon size={13} />
-          {section.estimatedMinutes} 分钟
-        </span>
-      </div>
       <h2 id={domId('learning', 'section-title', section.id)}>{section.title}</h2>
       <p>{section.summary}</p>
     </header>
@@ -570,30 +546,42 @@ function TextbookReader({
   textbook: TextbookDocument;
   onOpenBookshelf: () => void;
 }) {
+  const articleRef = useRef<HTMLElement | null>(null);
   const outlineRef = useRef<HTMLElement | null>(null);
-  const outlineSpacerRef = useRef<HTMLDivElement | null>(null);
-  const pendingOutlineAnchorRef = useRef<{
-    id: string;
-    scrollTop: number;
-    scrollHeight: number;
-  } | null>(null);
-  const [activeOutlinePanel, setActiveOutlinePanel] = useState<'contents' | 'article'>(
-    'contents',
-  );
-  const [selectedSectionId, setSelectedSectionId] = useState(firstSectionId(textbook));
 
-  const sections = textbook.chapters.flatMap((chapter) =>
-    chapter.sections.map((section) => ({ chapter, section })),
-  );
+  /* 右侧抽屉状态：目录 / 大纲 / Tutor 共用一个抽屉。 */
+  const [drawerPanel, setDrawerPanel] = useState<
+    'contents' | 'article' | 'tutor' | null
+  >(null);
+  const [asidePinned, setAsidePinned] = useState(false);
+
+  const asidePanel = drawerPanel === 'contents' || drawerPanel === 'article'
+    ? drawerPanel
+    : null;
+  const chapters = getReaderChapters(textbook);
+  const [selectedSectionId, setSelectedSectionId] = useState(firstSectionId(textbook));
   const selectedIndex = Math.max(
     0,
-    sections.findIndex((item) => item.section.id === selectedSectionId),
+    chapters.findIndex((chapter) => chapter.id === selectedSectionId),
   );
-  const selected = sections[selectedIndex];
-  const [collapsedChapterIds, setCollapsedChapterIds] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [tutorOpen, setTutorOpen] = useState(true);
+  const selected = chapters[selectedIndex];
+  const readingToolLabels: Record<ReadingTool, string> = {
+    read: '阅读',
+    highlight: '高亮',
+    underline: '下划线',
+    strike: '删除线',
+    bold: '加粗',
+    eraser: '擦除标记',
+  };
+  const readingToolShortcuts: Record<ReadingTool, string> = {
+    read: '1',
+    highlight: '2',
+    underline: '3',
+    strike: '4',
+    bold: '5',
+    eraser: '6',
+  };
+  const tutorOpen = drawerPanel === 'tutor';
   const [tutorWidth, setTutorWidth] = useState(380);
   const [tutorDraft, setTutorDraft] = useState('');
   const [tutorContext, setTutorContext] = useState<{
@@ -606,14 +594,41 @@ function TextbookReader({
   const [selectionClosing, setSelectionClosing] = useState(false);
   const [highlightPaletteClosing, setHighlightPaletteClosing] = useState(false);
   const [annotations, setAnnotations] = useState<TextAnnotation[]>([]);
+  const [readingTool, setReadingTool] = useState<ReadingTool>('read');
+  const [keepReadingTool, setKeepReadingTool] = useState(false);
+  const [highlightColor, setHighlightColor] = useState<HighlightColor>('yellow');
+  const [annotationHistory, setAnnotationHistory] = useState<AnnotationHistory>({
+    past: [],
+    future: [],
+  });
+  const [readerToolsCenter, setReaderToolsCenter] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const updateReaderToolsPosition = () => {
+      const article = articleRef.current;
+      if (!article) return;
+      const rect = article.getBoundingClientRect();
+      setReaderToolsCenter(rect.left + rect.width / 2);
+    };
+
+    updateReaderToolsPosition();
+    const resizeObserver = new ResizeObserver(updateReaderToolsPosition);
+    if (articleRef.current) resizeObserver.observe(articleRef.current);
+    window.addEventListener('resize', updateReaderToolsPosition);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateReaderToolsPosition);
+    };
+  }, [asidePanel, selected?.id, tutorOpen, tutorWidth]);
   const parsedSection = selected
-    ? parseMarkdownSection(selected.section.id, selected.section.markdown)
+    ? parseMarkdownSection(selected.id, selected.markdown)
     : { blocks: [], warnings: [] };
   const articleOutline = selected
     ? [
         {
-          id: domId('learning', 'section-title', selected.section.id),
-          title: selected.section.title,
+          id: domId('learning', 'section-title', selected.id),
+          title: selected.title,
           level: 1,
         },
         ...parsedSection.blocks.flatMap((block) =>
@@ -630,54 +645,29 @@ function TextbookReader({
       ]
     : [];
 
-  function toggleChapter(chapterId: string) {
-    const container = outlineRef.current;
-    const chapterButton = document.getElementById(
-      domId('learning', 'outline-chapter', chapterId),
-    );
-    if (container && chapterButton) {
-      pendingOutlineAnchorRef.current = {
-        id: chapterButton.id,
-        scrollTop: container.scrollTop,
-        scrollHeight: container.scrollHeight,
-      };
-    }
-
-    setCollapsedChapterIds((current) => {
-      const next = new Set(current);
-      if (next.has(chapterId)) {
-        next.delete(chapterId);
-      } else {
-        next.add(chapterId);
-      }
-      return next;
-    });
+  function openAsidePanel(panel: 'contents' | 'article') {
+    setDrawerPanel(panel);
+    setAsidePinned(true);
   }
 
-  useLayoutEffect(() => {
-    const container = outlineRef.current;
-    const pendingAnchor = pendingOutlineAnchorRef.current;
-    if (!container || !pendingAnchor) return;
+  function closeAsidePanel() {
+    setDrawerPanel(null);
+    setAsidePinned(false);
+  }
 
-    const spacer = outlineSpacerRef.current;
-    if (spacer) spacer.style.height = '0px';
-
-    const baseScrollHeight = container.scrollHeight;
-    if (spacer) {
-      spacer.style.height = `${Math.max(
-        0,
-        pendingAnchor.scrollHeight - baseScrollHeight,
-      )}px`;
+  function handleUtilityAction(action: 'tutor' | 'contents' | 'article') {
+    if (action === 'tutor') {
+      setAsidePinned(false);
+      setDrawerPanel((current) => (current === 'tutor' ? null : 'tutor'));
+      return;
     }
 
-    container.scrollTop = pendingAnchor.scrollTop;
-    pendingOutlineAnchorRef.current = null;
-  }, [collapsedChapterIds]);
+    if (asidePanel === action) {
+      closeAsidePanel();
+      return;
+    }
 
-  function switchOutlinePanel(panel: 'contents' | 'article') {
-    if (outlineSpacerRef.current) outlineSpacerRef.current.style.height = '0px';
-    setActiveOutlinePanel(panel);
-    outlineRef.current?.scrollTo({ top: 0 });
+    openAsidePanel(action);
   }
 
   function scrollToHeading(id: string) {
@@ -721,6 +711,165 @@ function TextbookReader({
     return () => window.removeEventListener('keydown', handleEscape);
   }, [highlightPaletteOpen, selectionMenu]);
 
+  useEffect(() => {
+    function undoFromKeyboard() {
+      const previous = annotationHistory.past.at(-1);
+      if (!previous) return;
+      setAnnotationHistory((current) => ({
+        past: current.past.slice(0, -1),
+        future: [...current.future, annotations],
+      }));
+      setAnnotations(previous);
+      toast('已撤销阅读标记');
+    }
+
+    function redoFromKeyboard() {
+      const next = annotationHistory.future.at(-1);
+      if (!next) return;
+      setAnnotationHistory((current) => ({
+        past: [...current.past, annotations],
+        future: current.future.slice(0, -1),
+      }));
+      setAnnotations(next);
+      toast('已恢复阅读标记');
+    }
+
+    function handleReadingShortcut(event: KeyboardEvent) {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.matches('input, textarea, select, [contenteditable="true"]')
+      ) {
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setReadingTool('read');
+        setKeepReadingTool(false);
+        closeSelectionMenu();
+        return;
+      }
+
+      if (event.ctrlKey || event.metaKey) {
+        if (event.key.toLowerCase() === 'z') {
+          event.preventDefault();
+          if (event.shiftKey) {
+            redoFromKeyboard();
+          } else {
+            undoFromKeyboard();
+          }
+        } else if (event.key.toLowerCase() === 'y') {
+          event.preventDefault();
+          redoFromKeyboard();
+        }
+        return;
+      }
+
+      const toolByKey: Partial<Record<string, ReadingTool>> = {
+        '1': 'read',
+        '2': 'highlight',
+        '3': 'underline',
+        '4': 'strike',
+        '5': 'bold',
+        '6': 'eraser',
+        r: 'read',
+        h: 'highlight',
+        u: 'underline',
+        s: 'strike',
+        b: 'bold',
+        e: 'eraser',
+      };
+      const tool = toolByKey[event.key.toLowerCase()];
+      if (tool) {
+        event.preventDefault();
+        setReadingTool(tool);
+        setKeepReadingTool(false);
+        closeSelectionMenu();
+      }
+    }
+
+    window.addEventListener('keydown', handleReadingShortcut);
+    return () => window.removeEventListener('keydown', handleReadingShortcut);
+  }, [annotationHistory, annotations]);
+
+  /* Escape 关闭浮窗辅助面板；点击外部关闭非 pinned 面板 */
+  useEffect(() => {
+    if (!asidePanel) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      closeAsidePanel();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [asidePanel]);
+
+  useEffect(() => {
+    if (!asidePanel || asidePinned) return;
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (
+        target.closest('.reader-aside-panel') ||
+        target.closest('.reader-utility-rail')
+      ) {
+        return;
+      }
+      closeAsidePanel();
+    }
+    window.addEventListener('mousedown', handlePointerDown);
+    return () => window.removeEventListener('mousedown', handlePointerDown);
+  }, [asidePanel, asidePinned]);
+
+  function commitAnnotations(next: TextAnnotation[]) {
+    if (next === annotations) return;
+    setAnnotationHistory((current) => ({
+      past: [...current.past, annotations],
+      future: [],
+    }));
+    setAnnotations(next);
+  }
+
+  function undoAnnotations() {
+    const previous = annotationHistory.past.at(-1);
+    if (!previous) return;
+    setAnnotationHistory((current) => ({
+      past: current.past.slice(0, -1),
+      future: [...current.future, annotations],
+    }));
+    setAnnotations(previous);
+    toast('已撤销阅读标记');
+  }
+
+  function redoAnnotations() {
+    const next = annotationHistory.future.at(-1);
+    if (!next) return;
+    setAnnotationHistory((current) => ({
+      past: [...current.past, annotations],
+      future: current.future.slice(0, -1),
+    }));
+    setAnnotations(next);
+    toast('已恢复阅读标记');
+  }
+
+  function applyToolToSelection(anchor: TextAnchor) {
+    if (readingTool === 'eraser') {
+      commitAnnotations(eraseAnnotations(annotations, anchor));
+      toast('已清理选区标记');
+    } else {
+      const style = annotationStyleForTool(readingTool, highlightColor);
+      if (!style) return;
+      commitAnnotations(
+        applyAnnotation(annotations, anchor, style, Date.now()),
+      );
+      toast('已更新阅读标记', { variant: 'success' });
+    }
+    if (!keepReadingTool) {
+      setReadingTool('read');
+    }
+    window.getSelection()?.removeAllRanges();
+  }
+
   function handleTextSelection() {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) return;
@@ -734,12 +883,18 @@ function TextbookReader({
     if (element?.closest('[data-annotation-disabled="true"]')) return;
     const block = element?.closest<HTMLElement>('[data-block-id]');
     if (!article || !block?.dataset.blockId) return;
+    const anchor = domRangeToTextAnchor(range, block);
+    if (!anchor) return;
+    if (readingTool !== 'read') {
+      applyToolToSelection(anchor);
+      return;
+    }
     const rect = range.getBoundingClientRect();
     setSelectionMenu({
       x: Math.min(window.innerWidth - 300, Math.max(16, rect.left)),
       y: Math.max(12, rect.top - 52),
       text,
-      blockId: block.dataset.blockId,
+      anchor,
     });
     setSelectionClosing(false);
     setHighlightPaletteOpen(false);
@@ -749,54 +904,89 @@ function TextbookReader({
   function askTutor() {
     if (!selectionMenu) return;
     setTutorContext({
-      sectionTitle: selected?.section.title,
-      blockId: selectionMenu.blockId,
+      sectionTitle: selected?.title,
+      blockId: selectionMenu.anchor.blockId,
       selectedText: selectionMenu.text,
     });
     setTutorDraft(`请结合当前章节解释这段内容：\n\n“${selectionMenu.text}”`);
-    setTutorOpen(true);
+    setDrawerPanel('tutor');
     closeSelectionMenu();
     window.getSelection()?.removeAllRanges();
   }
 
   function addAnnotation(style: AnnotationStyle) {
     if (!selectionMenu) return;
-    const { blockId, text } = selectionMenu;
-    setAnnotations((current) => [
-      ...current.filter(
-        (annotation) =>
-          annotation.blockId !== blockId ||
-          annotation.text !== text ||
-          annotation.style.type !== style.type,
-      ),
-      {
-        id: `annotation-${Date.now()}-${current.length}`,
-        blockId,
-        text,
-        style,
-      },
-    ]);
+    const { anchor } = selectionMenu;
+    commitAnnotations(applyAnnotation(annotations, anchor, style, Date.now()));
     toast('已更新阅读标记', { variant: 'success' });
   }
 
   function clearAnnotations() {
     if (!selectionMenu) return;
-    const { blockId, text } = selectionMenu;
-    setAnnotations((current) =>
-      current.filter(
-        (annotation) =>
-          annotation.blockId !== blockId || annotation.text !== text,
-      ),
-    );
+    const { anchor } = selectionMenu;
+    commitAnnotations(eraseAnnotations(annotations, anchor));
     closeSelectionMenu();
     window.getSelection()?.removeAllRanges();
     toast('已取消阅读标记');
   }
 
+  const outlineContent = asidePanel === 'contents' ? (
+    <nav
+      id="learning-aside-panel-contents"
+      ref={outlineRef}
+      className="reader-aside-panel__content"
+      role="tabpanel"
+      aria-label="教材目录"
+    >
+      {chapters.map((chapter) => (
+        <div className="outline-chapter" key={chapter.id}>
+          <button
+            type="button"
+            id={domId('learning', 'outline-chapter', chapter.id)}
+            className={`outline-section ${chapter.id === selectedSectionId ? 'is-active' : ''}`}
+            aria-current={chapter.id === selectedSectionId ? 'page' : undefined}
+            onClick={() => {
+              setSelectedSectionId(chapter.id);
+              closeAsidePanel();
+            }}
+          >
+            <span>{chapter.title}</span>
+          </button>
+        </div>
+      ))}
+    </nav>
+  ) : (
+    <div
+      id="learning-aside-panel-article"
+      className="reader-aside-panel__content reader-article-outline"
+      role="tabpanel"
+      aria-label="本章大纲"
+    >
+      <ul>
+        {articleOutline.map((item) => (
+          <li key={item.id} className={`is-level-${item.level}`}>
+            <button
+              type="button"
+              id={domId('learning', 'article-outline', item.id)}
+              onClick={() => {
+                scrollToHeading(item.id);
+                if (!asidePinned) {
+                  window.setTimeout(() => closeAsidePanel(), 220);
+                }
+              }}
+            >
+              {item.title}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
   if (!selected) {
     return (
       <section className="reader-empty">
-        <BooksIcon size={32} weight="duotone" />
+        <FontAwesomeIcon icon={faBook} style={{ fontSize: 32 }} />
         <h2>教材内容尚未生成</h2>
         <button
           type="button"
@@ -811,148 +1001,17 @@ function TextbookReader({
   }
 
   return (
-    <section className={`reader-page book-cover--${textbook.theme}`}>
-      <header className="reader-header motion-enter">
-        <div className={`reader-book-mark book-cover--${textbook.theme}`}>
-          <BookOpenIcon size={19} weight="duotone" />
-        </div>
-        <div className="reader-header__identity">
-          <span>
-            {textbook.category} · {textbook.code}
-          </span>
-          <h1>{textbook.title}</h1>
-          <p>{textbook.subtitle}</p>
-        </div>
-        <div className="reader-header__progress">
-          <span>整体进度</span>
-          <strong>{textbook.progress}%</strong>
-          <span className="reader-progress">
-            <span style={{ width: `${textbook.progress}%` }} />
-          </span>
-        </div>
-        <button
-          type="button"
-          id="learning-bookshelf-open"
-          className="button button--secondary reader-back"
-          onClick={onOpenBookshelf}
-        >
-          <BooksIcon size={15} />
-          书架
-        </button>
-      </header>
-
+    <section className="reader-page">
       <div
         className="reader-workspace"
-        style={
-          {
-            '--tutor-width': tutorOpen ? `${tutorWidth}px` : '58px',
-          } as CSSProperties
-        }
+        style={{
+          '--tutor-width': drawerPanel ? `${tutorWidth}px` : '0px',
+          '--reader-drawer-width': drawerPanel ? `${tutorWidth}px` : '0px',
+        } as CSSProperties}
       >
-        <div className="reader-layout">
-        <aside
-          ref={outlineRef}
-          className="card reader-outline motion-enter motion-delay-1"
-        >
-          <SegmentedControl
-            value={activeOutlinePanel}
-            onChange={switchOutlinePanel}
-            ariaLabel="阅读导航"
-            className="reader-outline__tabs"
-            options={[
-              {
-                value: 'contents',
-                id: 'learning-outline-tab-contents',
-                label: '目录',
-              },
-              {
-                value: 'article',
-                id: 'learning-outline-tab-article',
-                label: '大纲',
-              },
-            ]}
-          />
-
-          {activeOutlinePanel === 'contents' ? (
-            <nav
-              id="learning-outline-panel-contents"
-              className="reader-outline__panel"
-              role="tabpanel"
-              aria-labelledby="learning-outline-tab-contents"
-              aria-label="教材目录"
-            >
-              {textbook.chapters.map((chapter) => (
-                <div className="outline-chapter" key={chapter.id}>
-                  <button
-                    type="button"
-                    id={domId('learning', 'outline-chapter', chapter.id)}
-                    className="outline-chapter__title"
-                    aria-expanded={!collapsedChapterIds.has(chapter.id)}
-                    onClick={() => toggleChapter(chapter.id)}
-                  >
-                    <span className="outline-chapter__caret">
-                      {collapsedChapterIds.has(chapter.id) ? (
-                        <CaretRightIcon size={12} weight="bold" />
-                      ) : (
-                        <CaretDownIcon size={12} weight="bold" />
-                      )}
-                    </span>
-                    <span>{chapter.title}</span>
-                  </button>
-                  {!collapsedChapterIds.has(chapter.id) && (
-                    <ul>
-                      {chapter.sections.map((section) => {
-                        const active = section.id === selectedSectionId;
-                        return (
-                          <li key={section.id}>
-                            <button
-                              type="button"
-                              id={domId('learning', 'outline-section', section.id)}
-                              className={`outline-section ${active ? 'is-active' : ''}`}
-                              aria-current={active ? 'page' : undefined}
-                              onClick={() => setSelectedSectionId(section.id)}
-                            >
-                              <span>{section.title}</span>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-              ))}
-              <div
-                ref={outlineSpacerRef}
-                className="reader-outline__scroll-spacer"
-                aria-hidden="true"
-              />
-            </nav>
-          ) : (
-            <div
-              id="learning-outline-panel-article"
-              className="reader-outline__panel reader-article-outline"
-              role="tabpanel"
-              aria-labelledby="learning-outline-tab-article"
-            >
-            <ul>
-              {articleOutline.map((item) => (
-                <li key={item.id} className={`is-level-${item.level}`}>
-                  <button
-                    type="button"
-                    id={domId('learning', 'article-outline', item.id)}
-                    onClick={() => scrollToHeading(item.id)}
-                  >
-                    {item.title}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            </div>
-          )}
-        </aside>
-
         <article
-          className="card reader-article motion-enter motion-delay-2"
+          ref={articleRef}
+          className={`card reader-article motion-enter motion-delay-2 is-tool-${readingTool}`}
           onMouseDown={() => {
             if (selectionMenu) closeSelectionMenu();
           }}
@@ -960,22 +1019,91 @@ function TextbookReader({
           onPointerUp={handleTextSelection}
           onKeyUp={handleTextSelection}
         >
-          <div className="reader-breadcrumb">
-            <span>{selected.chapter.title}</span>
-            <span>/</span>
-            <span>{selected.section.title}</span>
+          <div
+            className="reader-tools"
+            aria-label="阅读工具"
+            style={readerToolsCenter === null ? undefined : { left: readerToolsCenter }}
+          >
+            <span className="reader-tools__label">工具</span>
+            {(['highlight', 'underline', 'strike', 'bold', 'eraser'] as ReadingTool[]).map(
+              (tool) => (
+                <button
+                  key={tool}
+                  type="button"
+                  id={`learning-tool-${tool}`}
+                  className={`button button--secondary reader-tool is-${tool}`}
+                  aria-label={readingToolLabels[tool]}
+                  aria-pressed={readingTool === tool}
+                  title={`${readingToolLabels[tool]} (${readingToolShortcuts[tool]})`}
+                  onClick={() => {
+                    setReadingTool(tool);
+                    setKeepReadingTool(false);
+                    closeSelectionMenu();
+                  }}
+                >
+                  {tool === 'highlight' ? <FontAwesomeIcon icon={faHighlighter} /> : null}
+                  {tool === 'eraser' ? <FontAwesomeIcon icon={faEraser} /> : null}
+                  {tool === 'underline' ? <FontAwesomeIcon icon={faUnderline} /> : null}
+                  {tool === 'bold' ? <FontAwesomeIcon icon={faBold} /> : null}
+                  {tool === 'strike' ? <FontAwesomeIcon icon={faStrikethrough} /> : null}
+                </button>
+              ),
+            )}
+            <button
+              type="button"
+              id="learning-tool-keep"
+              className="button button--secondary reader-tool reader-tool--keep"
+              aria-label="持续保持工具"
+              aria-pressed={keepReadingTool}
+              title={`持续保持工具 (${keepReadingTool ? '已开启' : '点击开启'})`}
+              onClick={() => setKeepReadingTool((current) => !current)}
+            >
+              keep
+            </button>
+            <span className="reader-tools__divider" aria-hidden="true" />
+            <button
+              type="button"
+              id="learning-annotation-undo"
+              className="button button--secondary reader-tool"
+              aria-label="撤销标记"
+              title="撤销标记 (Ctrl/Cmd+Z)"
+              disabled={!annotationHistory.past.length}
+              onClick={undoAnnotations}
+            >
+              <FontAwesomeIcon icon={faRotateLeft} />
+            </button>
+            <button
+              type="button"
+              id="learning-annotation-redo"
+              className="button button--secondary reader-tool"
+              aria-label="重做标记"
+              title="重做标记 (Ctrl/Cmd+Shift+Z)"
+              disabled={!annotationHistory.future.length}
+              onClick={redoAnnotations}
+            >
+              <FontAwesomeIcon icon={faRotateRight} />
+            </button>
+            {readingTool === 'highlight' && (
+              <div className="reader-tools__colors" aria-label="高亮颜色">
+                {(['green', 'yellow', 'sky', 'pink', 'orange'] as HighlightColor[]).map(
+                  (color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      id={`learning-tool-color-${color}`}
+                      className={`button selection-color is-${color} ${highlightColor === color ? 'is-selected' : ''}`}
+                      aria-label={`${color} 高亮颜色`}
+                      aria-pressed={highlightColor === color}
+                      title={`${color} 高亮颜色`}
+                      onClick={() => setHighlightColor(color)}
+                    />
+                  ),
+                )}
+              </div>
+            )}
           </div>
 
-          <SectionHeading section={selected.section} />
-
-          <div className="reader-objectives">
-            <span>学习目标</span>
-            <ul className="objective-list">
-              {selected.section.objectives.map((objective) => (
-                <li key={objective}>{objective}</li>
-              ))}
-            </ul>
-          </div>
+          <SectionHeading section={selected} />
 
           <div className="reader-blocks">
             {parsedSection.blocks.map((block, blockIndex) => (
@@ -984,7 +1112,7 @@ function TextbookReader({
                 block={block}
                 blockIndex={blockIndex}
                 annotations={annotations.filter(
-                  (annotation) => annotation.blockId === block.id,
+                  (annotation) => annotation.anchor.blockId === block.id,
                 )}
               />
             ))}
@@ -998,14 +1126,69 @@ function TextbookReader({
           )}
 
         </article>
+
+        {/* 右上角垂直工具列：导师 / 目录 / 大纲 */}
+        <div
+          className={`reader-utility-rail${drawerPanel ? ' is-hidden' : ''}`}
+          role="toolbar"
+          aria-label="学习区导航"
+        >
+          <button
+            type="button"
+            id="learning-tutor-toggle"
+            className={`reader-utility-button${
+              tutorOpen ? ' is-active' : ''
+            }`}
+            aria-label="导师"
+            aria-expanded={tutorOpen}
+            aria-controls="learning-tutor-panel"
+            title="导师"
+            onClick={() => handleUtilityAction('tutor')}
+          >
+            <FontAwesomeIcon icon={faStar} style={{ fontSize: 18 }} />
+            <span>导师</span>
+          </button>
+          <button
+            type="button"
+            id="learning-aside-toggle-contents"
+            className={`reader-utility-button${
+              asidePanel === 'contents' ? ' is-active' : ''
+            }`}
+            aria-label="教材目录"
+            aria-expanded={asidePanel === 'contents'}
+            aria-controls="learning-aside-panel-contents"
+            title="教材目录"
+            onClick={() => handleUtilityAction('contents')}
+          >
+            <FontAwesomeIcon icon={faBook} style={{ fontSize: 18 }} />
+            <span>目录</span>
+          </button>
+          <button
+            type="button"
+            id="learning-aside-toggle-article"
+            className={`reader-utility-button${
+              asidePanel === 'article' ? ' is-active' : ''
+            }`}
+            aria-label="本章大纲"
+            aria-expanded={asidePanel === 'article'}
+            aria-controls="learning-aside-panel-article"
+            title="本章大纲"
+            onClick={() => handleUtilityAction('article')}
+          >
+            <FontAwesomeIcon icon={faList} style={{ fontSize: 18 }} />
+            <span>大纲</span>
+          </button>
         </div>
 
         <TutorDrawer
-          open={tutorOpen}
+          open={drawerPanel !== null}
+          activePanel={drawerPanel ?? 'tutor'}
           width={tutorWidth}
           context={tutorContext}
           draft={tutorDraft}
-          onOpenChange={setTutorOpen}
+          children={asidePanel ? outlineContent : undefined}
+          onPanelChange={handleUtilityAction}
+          onOpenChange={(open) => setDrawerPanel(open ? 'tutor' : null)}
           onWidthChange={setTutorWidth}
           onDraftChange={setTutorDraft}
         />
@@ -1027,7 +1210,7 @@ function TextbookReader({
             title="询问 AI"
             onClick={askTutor}
           >
-            <SparkleIcon size={15} weight="duotone" />
+            <FontAwesomeIcon icon={faStar} style={{ fontSize: 15 }} />
           </button>
           <button
             type="button"
@@ -1044,7 +1227,7 @@ function TextbookReader({
               }
             }}
           >
-            <HighlighterIcon size={15} weight="fill" />
+            <FontAwesomeIcon icon={faHighlighter} style={{ fontSize: 15 }} />
           </button>
 
           {highlightPaletteOpen && (
@@ -1062,7 +1245,10 @@ function TextbookReader({
                     className={`button button--secondary selection-color is-${color}`}
                     aria-label={`${color} 高亮`}
                     title={`${color} 高亮`}
-                    onClick={() => addAnnotation({ type: 'highlight', color })}
+                    onClick={() => {
+                      setHighlightColor(color);
+                      addAnnotation({ type: 'highlight', color });
+                    }}
                   />
                 ),
               )}
@@ -1112,7 +1298,7 @@ function TextbookReader({
             title="取消标注"
             onClick={clearAnnotations}
           >
-            <EraserIcon size={15} weight="bold" />
+            <FontAwesomeIcon icon={faEraser} style={{ fontSize: 15 }} />
           </button>
         </div>
       )}
@@ -1124,11 +1310,6 @@ export function LearningZoneModule() {
   const activeTextbookId = useWorkbenchStore((state) => state.activeTextbookId);
   const setActive = useWorkbenchStore((state) => state.setActive);
   const textbook = getTextbookDocument(activeTextbookId);
-
-  useEffect(() => {
-    const state = useWorkbenchStore.getState();
-    if (!state.sidebarCollapsed) state.toggleSidebar();
-  }, []);
 
   return (
     <TextbookReader

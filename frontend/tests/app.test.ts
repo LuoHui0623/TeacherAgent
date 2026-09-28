@@ -52,6 +52,34 @@ describe('frontend smoke', () => {
     expect(useWorkbenchStore.getState().sidebarCollapsed).toBe(initial);
   });
 
+  it('enters immersive mode with the learning zone and leaves it elsewhere', () => {
+    useWorkbenchStore.getState().setActive('learning-zone');
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      immersiveMode: true,
+      sidebarCollapsed: true,
+    });
+
+    useWorkbenchStore.getState().setActive('workbench');
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      immersiveMode: false,
+      sidebarCollapsed: false,
+    });
+  });
+
+  it('toggles immersive mode together with sidebar visibility state', () => {
+    useWorkbenchStore.getState().setImmersiveMode(false);
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      immersiveMode: false,
+      sidebarCollapsed: false,
+    });
+
+    useWorkbenchStore.getState().toggleImmersiveMode();
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      immersiveMode: true,
+      sidebarCollapsed: true,
+    });
+  });
+
   it('requires an id on every button declaration', () => {
     const roots = ['../modules', '../shared'].map((path) =>
       fileURLToPath(new URL(path, import.meta.url)),

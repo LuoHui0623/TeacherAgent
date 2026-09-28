@@ -16,14 +16,6 @@ export function TopBar() {
 
   return (
     <header className="top-bar">
-      <div className="top-bar__brand">
-        <span className="top-bar__mark">TA</span>
-        <div>
-          <strong>{messages.app.title}</strong>
-          <span>{messages.app.subtitle}</span>
-        </div>
-      </div>
-
       <div className="top-bar__context">
         <span>Workspace</span>
         <strong>{moduleLabels[activeModule]}</strong>

@@ -1,0 +1,32 @@
+{
+  "id": "c7bb982f-4337-4738-95b9-0a04f6e45e4d",
+  "title": "Python 异步进阶",
+  "subtitle": "并发模型、结构化任务与可靠服务",
+  "category": "计算机",
+  "publishedAt": "2026-09-28",
+  "revisedAt": "2026-09-28",
+  "revision": "0.2.0",
+  "status": "ready",
+  "chapters": [
+    {
+      "id": "01",
+      "title": "异步模型与事件循环",
+      "summary": "建立 coroutine、Task 和 event loop 之间的关系，理解异步并不等于多线程。"
+    },
+    {
+      "id": "02",
+      "title": "结构化并发与任务生命周期",
+      "summary": "使用 TaskGroup 管理父子任务，让失败、取消和资源释放形成可推理的边界。"
+    },
+    {
+      "id": "03",
+      "title": "限流、队列与背压",
+      "summary": "用 Semaphore 和 Queue 控制并发度，避免生产速度超过下游服务的处理能力。"
+    },
+    {
+      "id": "04",
+      "title": "可测试的异步服务",
+      "summary": "把 I/O 边界、超时、重试和测试时钟隔离开，构建可验证的异步应用。"
+    }
+  ]
+}

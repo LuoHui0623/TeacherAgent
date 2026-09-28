@@ -1,4 +1,4 @@
-import { BookOpenIcon, BooksIcon, ClockIcon } from '@phosphor-icons/react';
+import { BooksIcon, ClockIcon } from '@phosphor-icons/react';
 import type { CSSProperties } from 'react';
 
 import { useWorkbenchStore } from '../../services/workbenchStore';
@@ -43,15 +43,14 @@ function BookCard({ book, index }: { book: TextbookSummary; index: number }) {
       className="book-card"
       style={style}
       onClick={() => openTextbook(book.id)}
-      aria-label={`打开《${book.title}》，${status.label}，学习进度 ${book.progress}%`}
+      aria-label={`打开《${book.title}》，${status.label}`}
     >
-      <div className={`book-cover book-cover--${book.theme}`}>
+      <div className="book-cover">
         <span className="book-cover__spine" />
         <span className="book-cover__glint" />
 
         <div className="book-cover__header">
           <span>TeacherAgent</span>
-          <code>{book.code}</code>
         </div>
 
         <div className="book-cover__title-block">
@@ -62,7 +61,6 @@ function BookCard({ book, index }: { book: TextbookSummary; index: number }) {
 
         <div className="book-cover__footer">
           <span>Textbook Series</span>
-          <span>{book.edition}</span>
         </div>
       </div>
 
@@ -71,19 +69,6 @@ function BookCard({ book, index }: { book: TextbookSummary; index: number }) {
           <strong>{book.title}</strong>
           <span className={`book-status ${status.className}`}>{status.label}</span>
         </div>
-        <div className="book-card__meta">
-          <span>
-            <BookOpenIcon size={13} />
-            {book.chapterCount} 章
-          </span>
-          <span>
-            <ClockIcon size={13} />
-            {book.progress}%
-          </span>
-        </div>
-        <span className="book-progress" aria-hidden="true">
-          <span style={{ width: `${book.progress}%` }} />
-        </span>
       </div>
     </button>
   );
@@ -91,8 +76,6 @@ function BookCard({ book, index }: { book: TextbookSummary; index: number }) {
 
 export function BookshelfModule() {
   const learningCount = textbookCatalog.filter((book) => book.status === 'learning').length;
-  const chapterCount = textbookCatalog.reduce((total, book) => total + book.chapterCount, 0);
-
   return (
     <section className="bookshelf-page">
       <header className="bookshelf-header motion-enter">
@@ -108,13 +91,6 @@ export function BookshelfModule() {
             <span>
               <strong>{textbookCatalog.length}</strong>
               本教材
-            </span>
-          </div>
-          <div>
-            <BookOpenIcon size={18} weight="duotone" />
-            <span>
-              <strong>{chapterCount}</strong>
-              个章节
             </span>
           </div>
           <div>

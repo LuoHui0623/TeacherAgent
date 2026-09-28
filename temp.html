@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeacherAgent AI - 沉浸式学习工作台</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7f4',
+                            100: '#e1efe9',
+                            500: '#1d5e49',
+                            600: '#154838',
+                            700: '#0f3529',
+                        },
+                        paper: '#fcfbf8',
+                        'paper-dark': '#f4f2eb',
+                    },
+                    fontFamily: {
+                        serif: ['"Noto Serif SC"', 'serif'],
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(229, 231, 235, 0.8);
+        }
+        
+        .text-highlight {
+            background: linear-gradient(120deg, rgba(225, 239, 233, 0.8) 0%, rgba(225, 239, 233, 0.4) 100%);
+            border-bottom: 2px solid #1d5e49;
+            padding: 0 4px;
+            border-radius: 2px;
+        }
+
+        /* Selection highlight style */
+        ::selection {
+            background-color: #e1efe9;
+            color: #0f3529;
+        }
+
+        /* Ambient glow for cards */
+        .ambient-shadow {
+            box-shadow: 0 10px 30px -10px rgba(29, 94, 73, 0.05), 0 4px 12px -2px rgba(0, 0, 0, 0.02);
+        }
+
+        /* Smooth page transition */
+        .page-enter {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-paper text-gray-800 font-sans h-full antialiased overflow-hidden flex flex-col select-none">
+
+    <!-- Reading Progress Bar -->
+    <div class="h-1 w-full bg-gray-100 fixed top-0 left-0 z-50">
+        <div id="progressBar" class="h-full bg-brand-500 w-0 transition-all duration-150"></div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="flex-1 flex flex-col h-full overflow-hidden">
+        
+        <!-- Top Application Header -->
+        <header id="mainHeader" class="h-16 border-b border-gray-200/60 bg-paper/90 backdrop-blur-md flex items-center justify-between px-6 z-30 transition-all duration-300">
+            <!-- Left Logo & Breadcrumb -->
+            <div class="flex items-center space-x-6">
+                <div class="flex items-center space-x-3 cursor-pointer group">
+                    <div class="w-9 h-9 rounded-xl bg-brand-500 text-white flex items-center justify-center font-bold text-lg shadow-sm group-hover:scale-105 transition-transform">
+                        TA
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-gray-900 leading-none text-base tracking-tight">TeacherAgent</h1>
+                        <span class="text-xs text-gray-400 font-medium">AI 教学学习工作台</span>
+                    </div>
+                </div>
+
+                <div class="h-4 w-[1px] bg-gray-200"></div>
+
+                <!-- Breadcrumb -->
+                <nav class="hidden md:flex items-center space-x-2 text-sm text-gray-500">
+                    <span class="hover:text-gray-800 cursor-pointer transition">函数、变化与极限</span>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-gray-300"></i>
+                    <span class="font-medium text-brand-600 bg-brand-50 px-2.5 py-0.5 rounded-full text-xs">1.1 函数作为模型</span>
+                </nav>
+            </div>
+
+            <!-- Right Controls -->
+            <div class="flex items-center space-x-3">
+                <!-- Ambient Audio Selector -->
+                <div class="relative group">
+                    <button id="ambientBtn" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-brand-500 text-xs text-gray-600 hover:text-brand-600 bg-white shadow-sm transition">
+                        <i id="ambientIcon" class="fa-solid fa-wind text-gray-400"></i>
+                        <span id="ambientText">自然风声</span>
+                        <i class="fa-solid fa-chevron-down text-[10px] text-gray-400"></i>
+                    </button>
+                    <!-- Audio Dropdown -->
+                    <div class="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1 hidden group-hover:block z-50">
+                        <button onclick="setAmbientSound('wind', '自然风声', 'fa-wind')" class="w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-brand-50 hover:text-brand-600 flex items-center space-x-2">
+                            <i class="fa-solid fa-wind w-4"></i><span>自然风声</span>
+                        </button>
+                        <button onclick="setAmbientSound('rain', '柔和雨声', 'fa-cloud-rain')" class="w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-brand-50 hover:text-brand-600 flex items-center space-x-2">
+                            <i class="fa-solid fa-cloud-rain w-4"></i><span>柔和雨声</span>
+                        </button>
+                        <button onclick="setAmbientSound('cafe', '咖啡馆声', 'fa-mug-hot')" class="w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-brand-50 hover:text-brand-600 flex items-center space-x-2">
+                            <i class="fa-solid fa-mug-hot w-4"></i><span>白噪咖啡馆</span>
+                        </button>
+                        <hr class="my-1 border-gray-100">
+                        <button onclick="setAmbientSound('none', '关闭音效', 'fa-volume-xmark')" class="w-full px-3 py-2 text-left text-xs text-red-500 hover:bg-red-50 flex items-center space-x-2">
+                            <i class="fa-solid fa-volume-xmark w-4"></i><span>静音模式</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Focus Mode Button -->
+                <button id="focusToggleBtn" onclick="toggleFocusMode()" class="px-3 py-1.5 rounded-lg border border-gray-200 hover:border-brand-500 text-xs text-gray-600 hover:text-brand-600 bg-white shadow-sm transition flex items-center space-x-1.5" title="快捷键 F">
+                    <i class="fa-solid fa-expand text-xs"></i>
+                    <span>专注模式</span>
+                </button>
+
+                <!-- Workspace Pill Button -->
+                <div class="bg-gray-100/80 p-1 rounded-xl flex items-center text-xs">
+                    <button class="px-3 py-1 text-gray-500 hover:text-gray-900 rounded-lg transition">Workspace</button>
+                    <button class="px-3 py-1 bg-white text-brand-600 font-medium rounded-lg shadow-sm flex items-center space-x-1">
+                        <i class="fa-solid fa-book-open text-[10px]"></i>
+                        <span>学习区</span>
+                        <i class="fa-solid fa-chevron-right text-[9px] ml-1"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Body Workspace -->
+        <div class="flex-1 flex overflow-hidden relative">
+            
+            <!-- Left Sidebar Navigation -->
+            <aside id="leftSidebar" class="w-16 border-r border-gray-200/50 bg-paper/50 flex flex-col items-center py-6 justify-between z-20 transition-all duration-300 shrink-0">
+                <div class="flex flex-col space-y-5">
+                    <button class="w-10 h-10 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center transition relative group" title="工作台概览">
+                        <i class="fa-solid fa-table-cells-large text-lg"></i>
+                        <span class="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-md opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 whitespace-nowrap">工作台</span>
+                    </button>
+                    <button class="w-10 h-10 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center transition relative group" title="知识图谱">
+                        <i class="fa-solid fa-diagram-project text-lg"></i>
+                        <span class="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-md opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 whitespace-nowrap">知识图谱</span>
+                    </button>
+                    <button class="w-10 h-10 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center transition relative group" title="学习笔记">
+                        <i class="fa-solid fa-book text-lg"></i>
+                        <span class="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-md opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 whitespace-nowrap">学习笔记</span>
+                    </button>
+                    <!-- Active Item -->
+                    <button class="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center transition relative group shadow-sm border border-brand-100" title="当前课程">
+                        <i class="fa-solid fa-graduation-cap text-lg"></i>
+                        <span class="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-md opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 whitespace-nowrap">沉浸学习</span>
+                    </button>
+                    <button class="w-10 h-10 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center transition relative group" title="数据分析">
+                        <i class="fa-solid fa-chart-line text-lg"></i>
+                        <span class="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-md opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 whitespace-nowrap">学习统计</span>
+                    </button>
+                    <button class="w-10 h-10 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center transition relative group" title="高亮集锦">
+                        <i class="fa-solid fa-highlighter text-lg"></i>
+                        <span class="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-md opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 whitespace-nowrap">高亮与摘录</span>
+                    </button>
+                </div>
+
+                <div class="flex flex-col space-y-4">
+                    <button id="sidebarToggle" onclick="toggleSidebar()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition">
+                        <i id="sidebarIcon" class="fa-solid fa-chevron-left text-xs"></i>
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Center Reading Area (Scrollable) -->
+            <main id="contentScrollArea" class="flex-1 overflow-y-auto px-4 md:px-12 py-8 relative scroll-smooth flex justify-center select-text">
+                
+                <!-- Floating Mini Formatting Toolbar -->
+                <div class="sticky top-2 z-40 w-full max-w-md mx-auto mb-6">
+                    <div class="glass-card rounded-2xl shadow-lg border border-white/60 p-1.5 flex items-center justify-between px-3 text-gray-600 text-sm">
+                        <!-- Tools dropdown -->
+                        <div class="flex items-center space-x-1 border-r border-gray-200/80 pr-2">
+                            <button class="px-2 py-1 hover:bg-gray-100 rounded-lg text-xs font-medium flex items-center space-x-1">
+                                <span>工具</span>
+                                <i class="fa-solid fa-chevron-down text-[9px] text-gray-400"></i>
+                            </button>
+                        </div>
+                        <!-- Formatting actions -->
+                        <div class="flex items-center space-x-1">
+                            <button onclick="formatText('highlight')" class="w-7 h-7 hover:bg-brand-50 hover:text-brand-600 rounded-lg flex items-center justify-center transition" title="高亮文本">
+                                <i class="fa-solid fa-book-open text-xs"></i>
+                            </button>
+                            <button onclick="formatText('underline')" class="w-7 h-7 hover:bg-brand-50 hover:text-brand-600 rounded-lg flex items-center justify-center transition" title="下划线">
+                                <i class="fa-solid fa-underline text-xs"></i>
+                            </button>
+                            <button onclick="formatText('strikethrough')" class="w-7 h-7 hover:bg-brand-50 hover:text-brand-600 rounded-lg flex items-center justify-center transition" title="删除线">
+                                <i class="fa-solid fa-strikethrough text-xs"></i>
+                            </button>
+                            <button onclick="formatText('bold')" class="w-7 h-7 hover:bg-brand-50 hover:text-brand-600 rounded-lg flex items-center justify-center transition" title="加粗">
+                                <i class="fa-solid fa-bold text-xs"></i>
+                            </button>
+                            <button onclick="formatText('clear')" class="w-7 h-7 hover:bg-red-50 hover:text-red-500 rounded-lg flex items-center justify-center transition" title="清除样式">
+                                <i class="fa-solid fa-eraser text-xs"></i>
+                            </button>
+                        </div>
+                        <div class="h-4 w-[1px] bg-gray-200"></div>
+                        <!-- Font Size controls -->
+                        <div class="flex items-center space-x-1">
+                            <button onclick="changeFontSize(-1)" class="w-7 h-7 hover:bg-gray-100 rounded-lg flex items-center justify-center font-serif text-xs" title="缩小字号">A-</button>
+                            <button onclick="changeFontSize(1)" class="w-7 h-7 hover:bg-gray-100 rounded-lg flex items-center justify-center font-serif text-sm font-semibold" title="放大字号">A+</button>
+                        </div>
+                        <div class="h-4 w-[1px] bg-gray-200"></div>
+                        <!-- Undo / Redo -->
+                        <div class="flex items-center space-x-1">
+                            <button class="w-7 h-7 hover:bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700" title="撤销">
+                                <i class="fa-solid fa-rotate-left text-xs"></i>
+                            </button>
+                            <button class="w-7 h-7 hover:bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700" title="重做">
+                                <i class="fa-solid fa-rotate-right text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Content Container -->
+                <div id="articleContent" class="w-full max-w-3xl page-enter pb-24 transition-all duration-200">
+                    
+                    <!-- Sub-breadcrumb / Category Tag -->
+                    <div class="flex items-center space-x-3 mb-4 text-xs font-medium text-gray-400">
+                        <span>函数、变化与极限</span>
+                        <span>/</span>
+                        <span class="text-gray-600">1.1 函数作为模型</span>
+                    </div>
+
+                    <!-- Post Tags & Reading Info -->
+                    <div class="flex items-center space-x-3 mb-4">
+                        <span class="bg-brand-50 text-brand-600 px-3 py-1 rounded-full text-xs font-semibold tracking-wide">正文</span>
+                        <span class="text-xs text-gray-400 flex items-center space-x-1">
+                            <i class="fa-regular fa-clock"></i>
+                            <span>18 分钟</span>
+                        </span>
+                        <span class="text-xs text-gray-400 flex items-center space-x-1 ml-2">
+                            <i class="fa-regular fa-eye"></i>
+                            <span>1.2k 次阅读</span>
+                        </span>
+                    </div>
+
+                    <!-- Main Article Title -->
+                    <h1 class="text-3xl md:text-4xl font-bold font-serif text-gray-900 mb-4 tracking-tight leading-tight">
+                        1.1 函数作为模型
+                    </h1>
+
+                    <!-- Article Subtitle -->
+                    <p class="text-lg md:text-xl text-gray-500 font-normal leading-relaxed mb-8">
+                        从现实变量关系抽象出函数，并理解定义域、值域与变化。
+                    </p>
+
+                    <!-- Learning Goals Card (Interactive Checklist) -->
+                    <div class="bg-gradient-to-r from-brand-50/60 to-emerald-50/30 border border-brand-100/80 rounded-2xl p-6 mb-10 ambient-shadow">
+                        <div class="flex items-start space-x-6">
+                            <div class="flex items-center space-x-2 text-brand-600 font-semibold text-base min-w-[100px] shrink-0 pt-0.5">
+                                <div class="w-7 h-7 rounded-lg bg-brand-500 text-white flex items-center justify-center text-xs shadow-sm">
+                                    <i class="fa-solid fa-bullseye"></i>
+                                </div>
+                                <span>学习目标</span>
+                            </div>
+                            <div class="flex-1 space-y-2.5">
+                                <label class="flex items-center space-x-3 text-sm text-gray-700 cursor-pointer group">
+                                    <input type="checkbox" class="w-4 h-4 accent-brand-500 rounded cursor-pointer" onchange="updateGoalProgress()">
+                                    <span class="group-hover:text-brand-600 transition">识别自变量与因变量的核心特征</span>
+                                </label>
+                                <label class="flex items-center space-x-3 text-sm text-gray-700 cursor-pointer group">
+                                    <input type="checkbox" class="w-4 h-4 accent-brand-500 rounded cursor-pointer" onchange="updateGoalProgress()">
+                                    <span class="group-hover:text-brand-600 transition">准确判断函数的定义域与值域边界</span>
+                                </label>
+                                <label class="flex items-center space-x-3 text-sm text-gray-700 cursor-pointer group">
+                                    <input type="checkbox" class="w-4 h-4 accent-brand-500 rounded cursor-pointer" onchange="updateGoalProgress()">
+                                    <span class="group-hover:text-brand-600 transition">用图像与表格直观解释变化趋势</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Heading Level 2 -->
+                    <h2 class="text-2xl font-serif font-bold text-gray-800 mt-10 mb-6 flex items-center space-x-3 group">
+                        <span class="w-1.5 h-6 bg-brand-500 rounded-full inline-block"></span>
+                        <span>函数是关系，不是公式</span>
+                    </h2>
+
+                    <!-- Main Article Paragraphs -->
+                    <p class="text-base md:text-lg text-gray-700 leading-relaxed mb-6 font-normal">
+                        函数不是公式的别名，而是一种<span class="text-highlight">稳定的对应关系</span>。给定一个输入，它只产生一个确定的输出。在现实建模中，公式往往只是关系的算术载体。
+                    </p>
+
+                    <p class="text-base md:text-lg text-gray-700 leading-relaxed mb-8">
+                        学习微积分时，最值得关注的不是单点数值，而是<span class="font-semibold text-gray-900">输入变化时输出如何变化</span>。图像、表格和公式只是同一关系的三种不同表述方式。
+                    </p>
+
+                    <!-- Callout Tip Box -->
+                    <div class="my-8 rounded-2xl bg-amber-50/70 border-l-4 border-amber-400 p-5 shadow-sm">
+                        <div class="flex space-x-4">
+                            <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                                <i class="fa-regular fa-lightbulb text-sm"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1">提示</h4>
+                                <h3 class="text-base font-bold text-gray-800 mb-1">先问变量</h3>
+                                <p class="text-sm text-gray-600 leading-relaxed">
+                                    面对新问题时，先写出“谁在变化、随着什么变化、变化范围是什么”。这比立即套用复杂的数学公式要有效得多。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Interactive Widget: Variable Box Model -->
+                    <div class="my-10 bg-white border border-gray-200/80 rounded-2xl p-6 shadow-sm">
+                        <div class="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-sliders text-brand-500"></i>
+                                <span class="font-bold text-sm text-gray-800">实时互动模型：自变量与因变量</span>
+                            </div>
+                            <span class="text-xs text-gray-400 font-mono">f(x) = x² + 2x</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-2">
+                                    调节自变量输入 (x): <span id="xValDisplay" class="font-bold text-brand-600 text-sm">3.0</span>
+                                </label>
+                                <input id="xInputRange" type="range" min="-5" max="5" step="0.5" value="3" 
+                                    class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                                    oninput="updateMathModel(this.value)">
+                                <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+                                    <span>-5.0</span>
+                                    <span>0.0</span>
+                                    <span>+5.0</span>
+                                </div>
+                            </div>
+
+                            <div class="bg-gray-50 rounded-xl p-4 flex items-center justify-around border border-gray-100">
+                                <div class="text-center">
+                                    <span class="text-xs text-gray-400 block">输入 x</span>
+                                    <span id="xBoxVal" class="text-xl font-bold font-mono text-gray-800">3.0</span>
+                                </div>
+                                <div class="text-brand-500">
+                                    <i class="fa-solid fa-arrow-right-long text-lg"></i>
+                                </div>
+                                <div class="text-center">
+                                    <span class="text-xs text-brand-600 font-medium block">函数 f(x)</span>
+                                    <span class="text-xs text-gray-400">映射法则</span>
+                                </div>
+                                <div class="text-brand-500">
+                                    <i class="fa-solid fa-arrow-right-long text-lg"></i>
+                                </div>
+                                <div class="text-center">
+                                    <span class="text-xs text-gray-400 block">输出 y</span>
+                                    <span id="yBoxVal" class="text-xl font-bold font-mono text-brand-600">15.0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Heading Level 2 -->
+                    <h2 class="text-2xl font-serif font-bold text-gray-800 mt-12 mb-6 flex items-center space-x-3">
+                        <span class="w-1.5 h-6 bg-brand-500 rounded-full inline-block"></span>
+                        <span>定义域与值域：变化的边界</span>
+                    </h2>
+
+                    <p class="text-base md:text-lg text-gray-700 leading-relaxed mb-6">
+                        定义域是所有可能输入的集合，而值域则是所有可能产出结果的集合。忽略定义域是初学者在构建物理或经济模型时最容易犯的错误之一。
+                    </p>
+
+                    <!-- Interactive Quote / Reflection Box -->
+                    <blockquote class="border-l-2 border-brand-500 pl-4 py-2 italic text-gray-600 my-6 bg-gray-50/50 rounded-r-lg">
+                        “在现实世界中，几乎没有物理量的变化范围是无穷大。理解边界，就是理解现实模型的限制条件。”
+                    </blockquote>
+
+                    <!-- Inline Notes / Self Quiz Component -->
+                    <div class="mt-10 pt-6 border-t border-gray-200/60">
+                        <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 flex items-center space-x-2">
+                            <i class="fa-regular fa-comment-dots text-brand-500"></i>
+                            <span>随堂思考与笔记记录</span>
+                        </h3>
+                        <div class="flex gap-3">
+                            <input id="userNoteInput" type="text" placeholder="在此输入你的理解或心得，按 Enter 保存..." class="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand-500 shadow-sm transition">
+                            <button onclick="addUserNote()" class="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-medium text-sm rounded-xl transition shadow-sm">
+                                记录
+                            </button>
+                        </div>
+                        <div id="notesContainer" class="mt-4 space-y-2">
+                            <!-- Notes dynamically added here -->
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+
+            <!-- Right Drawer Side Panel -->
+            <aside id="rightDrawer" class="w-72 border-l border-gray-200/60 bg-paper/60 flex flex-col justify-between p-4 z-20 transition-all duration-300 shrink-0">
+                
+                <div class="space-y-4">
+                    <!-- Drawer Navigation Cards Switcher -->
+                    <div class="glass-card rounded-2xl p-1.5 grid grid-cols-4 gap-1 text-center text-xs font-medium shadow-sm">
+                        <button onclick="switchTab('bookshelf')" id="tab-bookshelf" class="py-2 rounded-xl text-brand-600 bg-white shadow-sm flex flex-col items-center space-y-1 transition">
+                            <i class="fa-solid fa-book-bookmark text-sm"></i>
+                            <span class="text-[11px]">书架</span>
+                        </button>
+                        <button onclick="switchTab('tutor')" id="tab-tutor" class="py-2 rounded-xl text-gray-500 hover:text-gray-800 flex flex-col items-center space-y-1 transition">
+                            <i class="fa-solid fa-user-astronaut text-sm"></i>
+                            <span class="text-[11px]">导师</span>
+                        </button>
+                        <button onclick="switchTab('toc')" id="tab-toc" class="py-2 rounded-xl text-gray-500 hover:text-gray-800 flex flex-col items-center space-y-1 transition">
+                            <i class="fa-solid fa-list-ul text-sm"></i>
+                            <span class="text-[11px]">目录</span>
+                        </button>
+                        <button onclick="switchTab('outline')" id="tab-outline" class="py-2 rounded-xl text-gray-500 hover:text-gray-800 flex flex-col items-center space-y-1 transition">
+                            <i class="fa-solid fa-bars-staggered text-sm"></i>
+                            <span class="text-[11px]">大纲</span>
+                        </button>
+                    </div>
+
+                    <!-- Panel Content Display Container -->
+                    <div class="bg-white/80 rounded-2xl border border-gray-200/70 p-4 h-[calc(100vh-180px)] overflow-y-auto shadow-sm">
+                        
+                        <!-- Tab 1: Bookshelf -->
+                        <div id="content-bookshelf" class="space-y-4">
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">当前课程书架</h3>
+                            <div class="p-3 bg-brand-50/50 rounded-xl border border-brand-100 flex items-center space-x-3 cursor-pointer hover:shadow-sm transition">
+                                <div class="w-10 h-12 bg-brand-500 rounded-md text-white flex items-center justify-center font-bold text-sm shadow">
+                                    微积分
+                                </div>
+                                <div class="overflow-hidden">
+                                    <h4 class="text-xs font-bold text-gray-800 truncate">微积分基础概念</h4>
+                                    <p class="text-[10px] text-gray-400 mt-0.5">已完成 35%</p>
+                                    <div class="w-24 h-1 bg-gray-200 rounded-full mt-1 overflow-hidden">
+                                        <div class="h-full bg-brand-500 w-[35%]"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center space-x-3 cursor-pointer hover:bg-gray-100/80 transition">
+                                <div class="w-10 h-12 bg-gray-400 rounded-md text-white flex items-center justify-center font-bold text-sm shadow">
+                                    线性
+                                </div>
+                                <div class="overflow-hidden">
+                                    <h4 class="text-xs font-bold text-gray-700 truncate">线性代数本质</h4>
+                                    <p class="text-[10px] text-gray-400 mt-0.5">未开始</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 2: AI Tutor -->
+                        <div id="content-tutor" class="hidden space-y-3 flex flex-col h-full">
+                            <div class="flex items-center space-x-2 border-b border-gray-100 pb-2">
+                                <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                                <span class="text-xs font-bold text-gray-700">AI 学习导师在线</span>
+                            </div>
+                            
+                            <div id="chatMessages" class="flex-1 space-y-3 overflow-y-auto pr-1 text-xs">
+                                <div class="bg-brand-50 text-brand-900 p-2.5 rounded-xl border border-brand-100">
+                                    👋 你好！我是你的 AI 助教。阅读过程中对“函数对应关系”有任何疑问，随时问我！
+                                </div>
+                            </div>
+
+                            <div class="pt-2 border-t border-gray-100 flex space-x-1">
+                                <input id="chatInput" type="text" placeholder="向导师提问..." class="w-full bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-brand-500" onkeypress="if(event.key==='Enter') sendChatMessage()">
+                                <button onclick="sendChatMessage()" class="bg-brand-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-brand-600 transition shrink-0">
+                                    发送
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tab 3: Table of Contents -->
+                        <div id="content-toc" class="hidden space-y-2 text-xs">
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">章节目录</h3>
+                            <a href="#" class="block p-2 rounded-lg bg-brand-50 text-brand-700 font-semibold">1.1 函数作为模型</a>
+                            <a href="#" class="block p-2 rounded-lg hover:bg-gray-50 text-gray-600">1.2 函数的四种表示</a>
+                            <a href="#" class="block p-2 rounded-lg hover:bg-gray-50 text-gray-600">1.3 变化率与极限</a>
+                            <a href="#" class="block p-2 rounded-lg hover:bg-gray-50 text-gray-600">1.4 连续性分析</a>
+                        </div>
+
+                        <!-- Tab 4: Outline -->
+                        <div id="content-outline" class="hidden space-y-2 text-xs">
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">本页大纲</h3>
+                            <div class="space-y-1.5 pl-2 border-l border-gray-200">
+                                <a href="#" class="block text-brand-600 font-medium hover:underline truncate">1.1 函数作为模型</a>
+                                <a href="#" class="block text-gray-500 hover:text-gray-800 pl-2 truncate">学习目标</a>
+                                <a href="#" class="block text-gray-500 hover:text-gray-800 pl-2 truncate">函数是关系，不是公式</a>
+                                <a href="#" class="block text-gray-500 hover:text-gray-800 pl-4 truncate">提示：先问变量</a>
+                                <a href="#" class="block text-gray-500 hover:text-gray-800 pl-2 truncate">定义域与值域：变化的边界</a>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Bottom Collapse button for drawer -->
+                <button onclick="toggleRightDrawer()" class="w-full py-2 bg-white/60 hover:bg-white rounded-xl border border-gray-200/80 text-xs text-gray-500 hover:text-gray-800 transition flex items-center justify-center space-x-1 shadow-sm mt-2">
+                    <i id="rightDrawerIcon" class="fa-solid fa-chevron-right text-[10px]"></i>
+                    <span id="rightDrawerBtnText">折叠侧栏</span>
+                </button>
+            </aside>
+
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-gray-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-xl opacity-0 pointer-events-none transition-all duration-300 z-50 flex items-center space-x-2">
+        <i class="fa-solid fa-circle-check text-green-400"></i>
+        <span id="toastMsg">高亮已保存</span>
+    </div>
+
+    <script>
+        // State management
+        let currentFontSize = 16;
+        let isFocusMode = false;
+        let isRightDrawerOpen = true;
+        let isLeftSidebarOpen = true;
+
+        // Reading Progress Bar Tracker
+        const scrollArea = document.getElementById('contentScrollArea');
+        const progressBar = document.getElementById('progressBar');
+
+        scrollArea.addEventListener('scroll', () => {
+            const scrollTop = scrollArea.scrollTop;
+            const scrollHeight = scrollArea.scrollHeight - scrollArea.clientHeight;
+            const progress = (scrollTop / scrollHeight) * 100;
+            progressBar.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+        });
+
+        // Toggle Focus Mode
+        function toggleFocusMode() {
+            isFocusMode = !isFocusMode;
+            const header = document.getElementById('mainHeader');
+            const leftSidebar = document.getElementById('leftSidebar');
+            const rightDrawer = document.getElementById('rightDrawer');
+            const btn = document.getElementById('focusToggleBtn');
+
+            if (isFocusMode) {
+                header.classList.add('-translate-y-full', 'opacity-0');
+                leftSidebar.classList.add('-translate-x-full', 'w-0', 'p-0');
+                rightDrawer.classList.add('translate-x-full', 'w-0', 'p-0');
+                btn.classList.add('bg-brand-50', 'text-brand-600');
+                showToast("已开启专注模式 (按 F 退出)");
+            } else {
+                header.classList.remove('-translate-y-full', 'opacity-0');
+                leftSidebar.classList.remove('-translate-x-full', 'w-0', 'p-0');
+                rightDrawer.classList.remove('translate-x-full', 'w-0', 'p-0');
+                btn.classList.remove('bg-brand-50', 'text-brand-600');
+                showToast("退出专注模式");
+            }
+        }
+
+        // Keyboard Shortcut for Focus Mode
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'f' || e.key === 'F') {
+                // Avoid triggering if inside input
+                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                    toggleFocusMode();
+                }
+            }
+        });
+
+        // Font Size Adjuster
+        function changeFontSize(delta) {
+            currentFontSize = Math.max(13, Math.min(22, currentFontSize + delta));
+            const article = document.getElementById('articleContent');
+            article.style.fontSize = `${currentFontSize}px`;
+            showToast(`字号已调整为 ${currentFontSize}px`);
+        }
+
+        // Ambient Audio Selector Mock
+        function setAmbientSound(type, name, icon) {
+            document.getElementById('ambientText').innerText = name;
+            document.getElementById('ambientIcon').className = `fa-solid ${icon} text-brand-500`;
+            showToast(`背景声音已切换为: ${name}`);
+        }
+
+        // Math Interactive Model Updater
+        function updateMathModel(xVal) {
+            const x = parseFloat(xVal);
+            const y = x * x + 2 * x;
+            document.getElementById('xValDisplay').innerText = x.toFixed(1);
+            document.getElementById('xBoxVal').innerText = x.toFixed(1);
+            document.getElementById('yBoxVal').innerText = y.toFixed(1);
+        }
+
+        // Right Drawer Tab Switcher
+        function switchTab(tabName) {
+            const tabs = ['bookshelf', 'tutor', 'toc', 'outline'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const content = document.getElementById(`content-${t}`);
+                if (t === tabName) {
+                    btn.className = "py-2 rounded-xl text-brand-600 bg-white shadow-sm flex flex-col items-center space-y-1 transition font-bold";
+                    content.classList.remove('hidden');
+                } else {
+                    btn.className = "py-2 rounded-xl text-gray-500 hover:text-gray-800 flex flex-col items-center space-y-1 transition";
+                    content.classList.add('hidden');
+                }
+            });
+        }
+
+        // Left Sidebar Collapse
+        function toggleSidebar() {
+            isLeftSidebarOpen = !isLeftSidebarOpen;
+            const sidebar = document.getElementById('leftSidebar');
+            const icon = document.getElementById('sidebarIcon');
+            if (!isLeftSidebarOpen) {
+                sidebar.classList.add('w-0', 'overflow-hidden', 'opacity-0');
+                sidebar.classList.remove('w-16');
+                icon.className = "fa-solid fa-chevron-right text-xs";
+            } else {
+                sidebar.classList.remove('w-0', 'overflow-hidden', 'opacity-0');
+                sidebar.classList.add('w-16');
+                icon.className = "fa-solid fa-chevron-left text-xs";
+            }
+        }
+
+        // Right Drawer Collapse
+        function toggleRightDrawer() {
+            isRightDrawerOpen = !isRightDrawerOpen;
+            const drawer = document.getElementById('rightDrawer');
+            const icon = document.getElementById('rightDrawerIcon');
+            const btnText = document.getElementById('rightDrawerBtnText');
+
+            if (!isRightDrawerOpen) {
+                drawer.classList.add('w-12');
+                drawer.classList.remove('w-72');
+                icon.className = "fa-solid fa-chevron-left text-[10px]";
+                btnText.innerText = "";
+            } else {
+                drawer.classList.remove('w-12');
+                drawer.classList.add('w-72');
+                icon.className = "fa-solid fa-chevron-right text-[10px]";
+                btnText.innerText = "折叠侧栏";
+            }
+        }
+
+        // Goal Progress Toast
+        function updateGoalProgress() {
+            const checkboxes = document.querySelectorAll('#articleContent input[type="checkbox"]');
+            const checked = Array.from(checkboxes).filter(c => c.checked).length;
+            showToast(`已完成学习目标 ${checked}/${checkboxes.length}`);
+        }
+
+        // Add User Note Functionality
+        function addUserNote() {
+            const input = document.getElementById('userNoteInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const container = document.getElementById('notesContainer');
+            const noteDiv = document.createElement('div');
+            noteDiv.className = "p-3 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 flex justify-between items-center shadow-sm animation-fadeIn";
+            noteDiv.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <span class="w-2 h-2 rounded-full bg-brand-500"></span>
+                    <span>${text}</span>
+                </div>
+                <button onclick="this.parentElement.remove()" class="text-gray-400 hover:text-red-500 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            `;
+            container.prepend(noteDiv);
+            input.value = '';
+            showToast("随堂笔记已保存");
+        }
+
+        // Send AI Chat Message
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            const container = document.getElementById('chatMessages');
+            
+            // Append User Message
+            const userMsg = document.createElement('div');
+            userMsg.className = "bg-gray-100 text-gray-800 p-2.5 rounded-xl ml-4 text-right border border-gray-200/50";
+            userMsg.innerText = msg;
+            container.appendChild(userMsg);
+
+            input.value = '';
+            container.scrollTop = container.scrollHeight;
+
+            // Simulate AI reply after short delay
+            setTimeout(() => {
+                const aiMsg = document.createElement('div');
+                aiMsg.className = "bg-brand-50 text-brand-900 p-2.5 rounded-xl mr-4 border border-brand-100";
+                aiMsg.innerText = `💡 导师回复：“${msg}” 是一个核心概念！简单理解，自变量是 Cause，因变量是 Effect。`;
+                container.appendChild(aiMsg);
+                container.scrollTop = container.scrollHeight;
+            }, 800);
+        }
+
+        // Text Formatting Simulator (Applies to selection or shows toast)
+        function formatText(type) {
+            const sel = window.getSelection();
+            if (sel.toString().length > 0) {
+                showToast(`已成功将所选文本设置为 [${type}]`);
+            } else {
+                showToast(`请先在正文中选中需要划线/高亮的文字`);
+            }
+        }
+
+        // Toast Helper
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            toastMsg.innerText = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            
+            clearTimeout(window.toastTimer);
+            window.toastTimer = setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>

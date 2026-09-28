@@ -1,13 +1,3 @@
-export type CoverTheme =
-  | 'jade'
-  | 'navy'
-  | 'coral'
-  | 'amber'
-  | 'plum'
-  | 'slate'
-  | 'sky'
-  | 'indigo';
-
 export type BookStatus = 'learning' | 'ready' | 'queued';
 export type SectionKind = 'lesson' | 'sandbox' | 'practice' | 'review';
 
@@ -16,12 +6,7 @@ export interface TextbookSummary {
   title: string;
   subtitle: string;
   category: string;
-  code: string;
-  edition: string;
-  chapterCount: number;
-  progress: number;
   status: BookStatus;
-  theme: CoverTheme;
 }
 
 export type InlineNode =
@@ -170,7 +155,10 @@ export interface TextbookChapter {
   id: string;
   title: string;
   summary: string;
-  sections: TextbookSection[];
+  /** 正式教材章节的 Markdown 源文；其中 ##/### 标题生成章节内大纲。 */
+  markdown?: string;
+  /** 旧版教材结构的兼容字段，生产数据不再需要。 */
+  sections?: TextbookSection[];
 }
 
 export interface TextbookDocument extends TextbookSummary {

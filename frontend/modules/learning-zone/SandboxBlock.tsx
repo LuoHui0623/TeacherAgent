@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  CheckCircleIcon,
-  CircleIcon,
-  CircleNotchIcon,
-  CodeIcon,
-  CopyIcon,
-  FlaskIcon,
-  PlayIcon,
-  WarningCircleIcon,
-} from '@phosphor-icons/react';
+  faCheckCircle,
+  faCircle,
+  faCircleNotch,
+  faClipboard,
+  faCode,
+  faFlask,
+  faPlay,
+  faTriangleExclamation,
+} from '@fortawesome/free-solid-svg-icons';
 
 import type { CodeBlock } from '../../services/textbook/types';
 import { domId } from '../../shared/ids';
@@ -301,7 +302,7 @@ export function CodeFenceBlock({
     >
       <header className="code-fence__toolbar">
         <div className="code-fence__identity">
-          <CodeIcon size={15} weight="bold" />
+          <FontAwesomeIcon icon={faCode} style={{ fontSize: 15 }} />
           <span className="code-fence__language">{block.language}</span>
         </div>
 
@@ -315,14 +316,14 @@ export function CodeFenceBlock({
               {
                 value: 'fence',
                 id: domId('learning', 'code', 'fence', instanceId),
-                label: <CodeIcon size={14} weight="bold" />,
+                label: <FontAwesomeIcon icon={faCode} style={{ fontSize: 14 }} />,
                 ariaLabel: 'Fence 模式',
                 title: 'Fence 模式',
               },
               {
                 value: 'sandbox',
                 id: domId('learning', 'code', 'sandbox', instanceId),
-                label: <FlaskIcon size={14} weight="bold" />,
+                label: <FontAwesomeIcon icon={faFlask} style={{ fontSize: 14 }} />,
                 ariaLabel: '沙盒模式',
                 title: '沙盒模式',
               },
@@ -351,15 +352,15 @@ export function CodeFenceBlock({
                 title={statusLabel}
                 aria-label={statusLabel}
               >
-                {runState === 'idle' && <CircleIcon size={13} weight="bold" />}
+                {runState === 'idle' && <FontAwesomeIcon icon={faCircle} style={{ fontSize: 13 }} />}
                 {runState === 'running' && (
-                  <CircleNotchIcon className="spin-soft" size={13} weight="bold" />
+                  <FontAwesomeIcon className="spin-soft" icon={faCircleNotch} style={{ fontSize: 13 }} />
                 )}
                 {runState === 'success' && (
-                  <CheckCircleIcon size={13} weight="fill" />
+                  <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: 13 }} />
                 )}
                 {runState === 'error' && (
-                  <WarningCircleIcon size={13} weight="fill" />
+                  <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 13 }} />
                 )}
               </span>
             </div>
@@ -388,9 +389,9 @@ export function CodeFenceBlock({
           aria-label={mode === 'fence' ? '复制代码' : '执行代码'}
         >
           {mode === 'fence' ? (
-            <CopyIcon size={14} weight="bold" />
+            <FontAwesomeIcon icon={faClipboard} style={{ fontSize: 14 }} />
           ) : (
-            <PlayIcon size={14} weight="fill" />
+            <FontAwesomeIcon icon={faPlay} style={{ fontSize: 14 }} />
           )}
         </button>
       </div>

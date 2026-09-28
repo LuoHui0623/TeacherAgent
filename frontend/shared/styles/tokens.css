@@ -1,35 +1,35 @@
 /* TeacherAgent 设计令牌：冷中性画布 + 青绿色操作色 + 琥珀状态色 */
 :root {
-  --font-ui: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
+  --font-ui: 'Google Sans Flex', 'Google Sans', 'Helvetica Neue', sans-serif;
   --font-reading: var(--font-ui);
   --font-mono: 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
   --app-font-size: 15px;
 
   /* 画布与表面 */
-  --canvas: #f3f7f6;
-  --surface: #ffffff;
-  --surface-alt: #edf4f2;
-  --surface-strong: #e3eeeb;
-  --surface-hover: #f2f6f5;
+  --canvas: #edf5f1;
+  --surface: #f9fcfa;
+  --surface-alt: #e5f0eb;
+  --surface-strong: #d8e8e0;
+  --surface-hover: #eef6f2;
 
   /* 文本 */
-  --ink: #12211f;
-  --ink-secondary: #4d625e;
-  --ink-tertiary: #80928e;
+  --ink: #173129;
+  --ink-secondary: #4d695d;
+  --ink-tertiary: #82988d;
 
   /* 结构线 */
-  --border: #d9e5e2;
-  --border-strong: #c5d6d2;
+  --border: #d1e2d9;
+  --border-strong: #b9d0c3;
 
   /* 操作色 */
-  --accent: #0d766e;
-  --accent-hover: #095f59;
-  --accent-bright: #0fb9a6;
-  --accent-bright-hover: #16cdb8;
-  --accent-soft: #dff2ee;
-  --accent-soft-strong: #cce9e3;
-  --accent-bright-soft: #d8faf4;
-  --accent-ink: #07534d;
+  --accent: #287a5b;
+  --accent-hover: #1f6349;
+  --accent-bright: #3f9b75;
+  --accent-bright-hover: #55b487;
+  --accent-soft: #dcefe5;
+  --accent-soft-strong: #c8e4d4;
+  --accent-bright-soft: #e2f5e9;
+  --accent-ink: #1c5a42;
   --amber: #b86d0d;
   --amber-bright: #d98a12;
   --amber-soft: #fff0d3;
@@ -120,7 +120,7 @@
 }
 
 :root[data-font-family='system'] {
-  --font-ui: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
+  --font-ui: 'Google Sans Flex', 'Google Sans', 'Helvetica Neue', sans-serif;
 }
 
 :root[data-font-family='humanist'] {

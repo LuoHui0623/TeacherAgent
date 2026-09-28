@@ -1,6 +1,8 @@
-import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 
 import { useWorkbenchStore } from '../services/workbenchStore';
+import { messages } from '../constants';
 import { domId } from './ids';
 import { sideNavItems } from './sideNavItems';
 import { Button } from './ui/Button';
@@ -13,8 +15,16 @@ export function SideNav() {
 
   return (
     <nav className={`side-nav ${collapsed ? 'is-collapsed' : ''}`}>
+      <div className="side-nav__brand">
+        <span className="side-nav__mark">TA</span>
+        <div className="side-nav__brand-copy">
+          <strong>{messages.app.title}</strong>
+          <span>{messages.app.subtitle}</span>
+        </div>
+      </div>
+
       <ul className="side-nav__items">
-        {sideNavItems.map(({ key, label, icon: Icon }) => {
+        {sideNavItems.map(({ key, label, icon }) => {
           const active = key === activeModule;
           return (
             <li key={key}>
@@ -29,7 +39,7 @@ export function SideNav() {
                 aria-current={active ? 'page' : undefined}
               >
                 <span className="side-nav__icon">
-                  <Icon size={19} weight={active ? 'fill' : 'regular'} />
+                  <FontAwesomeIcon icon={icon} style={{ fontSize: 19 }} />
                 </span>
                 <span className="side-nav__label">{label}</span>
               </Button>
@@ -48,9 +58,9 @@ export function SideNav() {
         onClick={toggleSidebar}
       >
         {collapsed ? (
-          <CaretRightIcon size={15} weight="bold" />
+          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 15 }} />
         ) : (
-          <CaretLeftIcon size={15} weight="bold" />
+          <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 15 }} />
         )}
       </button>
     </nav>

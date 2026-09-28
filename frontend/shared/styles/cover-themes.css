@@ -2,63 +2,63 @@
 .book-cover.book-cover--jade,
 .reader-book-mark.book-cover--jade,
 .reader-page.book-cover--jade {
-  --cover-bg: #0b6d65;
-  --cover-ink: #f2fffc;
-  --cover-accent: #94e1d3;
+  --cover-bg: #23664e;
+  --cover-ink: #f2faf5;
+  --cover-accent: #a2d6b7;
 }
 
 .book-cover.book-cover--navy,
 .reader-book-mark.book-cover--navy,
 .reader-page.book-cover--navy {
-  --cover-bg: #244b70;
-  --cover-ink: #f5f9ff;
-  --cover-accent: #a6c9ec;
+  --cover-bg: #315f4d;
+  --cover-ink: #f3faf5;
+  --cover-accent: #b0d9bc;
 }
 
 .book-cover.book-cover--coral,
 .reader-book-mark.book-cover--coral,
 .reader-page.book-cover--coral {
-  --cover-bg: #b84c47;
-  --cover-ink: #fff8f6;
-  --cover-accent: #f5b5ad;
+  --cover-bg: #4d765d;
+  --cover-ink: #f4fbf5;
+  --cover-accent: #c1e0c4;
 }
 
 .book-cover.book-cover--amber,
 .reader-book-mark.book-cover--amber,
 .reader-page.book-cover--amber {
-  --cover-bg: #a86b0e;
-  --cover-ink: #fffaf0;
-  --cover-accent: #f4cf83;
+  --cover-bg: #6f8050;
+  --cover-ink: #f7fbf1;
+  --cover-accent: #d1e3a9;
 }
 
 .book-cover.book-cover--plum,
 .reader-book-mark.book-cover--plum,
 .reader-page.book-cover--plum {
-  --cover-bg: #674764;
-  --cover-ink: #fff7fd;
-  --cover-accent: #daadd4;
+  --cover-bg: #4d6657;
+  --cover-ink: #f2faf4;
+  --cover-accent: #b8d8bf;
 }
 
 .book-cover.book-cover--slate,
 .reader-book-mark.book-cover--slate,
 .reader-page.book-cover--slate {
-  --cover-bg: #40565f;
-  --cover-ink: #f5fbfd;
-  --cover-accent: #acc8d1;
+  --cover-bg: #526b5d;
+  --cover-ink: #f3faf5;
+  --cover-accent: #b9d8c0;
 }
 
 .book-cover.book-cover--sky,
 .reader-book-mark.book-cover--sky,
 .reader-page.book-cover--sky {
-  --cover-bg: #316f8f;
-  --cover-ink: #f4fbff;
-  --cover-accent: #a5d5e9;
+  --cover-bg: #39725b;
+  --cover-ink: #f3fbf5;
+  --cover-accent: #a8d9b8;
 }
 
 .book-cover.book-cover--indigo,
 .reader-book-mark.book-cover--indigo,
 .reader-page.book-cover--indigo {
-  --cover-bg: #454d84;
-  --cover-ink: #f8f8ff;
-  --cover-accent: #b9c0ef;
+  --cover-bg: #3f604d;
+  --cover-ink: #f2faf4;
+  --cover-accent: #a8d1b2;
 }

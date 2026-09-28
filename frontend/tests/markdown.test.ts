@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { findMarkdownFixture, markdownFixtures, markdownRequirements } from '../mocks/markdown/fixtures';
 import { getTextbookDocument } from '../mocks/textbooks';
+import { getReaderChapters } from '../services/textbook/chapterModel';
 import { parseMarkdownSection } from '../services/textbook/markdown/parser';
 
 describe('markdown rendering pipeline', () => {
@@ -33,14 +34,22 @@ describe('markdown rendering pipeline', () => {
     expect(codeBlocks[2].runtime).toBeUndefined();
   });
 
-  it('parses every textbook section from markdown source', () => {
-    const document = getTextbookDocument('calculus');
-    const sections = document.chapters.flatMap((chapter) => chapter.sections);
+  it('parses every textbook chapter from its markdown source', () => {
+    const document = getTextbookDocument('94134faf-b49c-4a50-bd46-2c9c92654bc4');
+    const chapters = getReaderChapters(document);
 
-    for (const section of sections) {
-      const result = parseMarkdownSection(section.id, section.markdown);
-      expect(result.blocks.length, section.id).toBeGreaterThan(0);
-      expect(result.warnings, section.id).toHaveLength(0);
+    for (const chapter of chapters) {
+      const result = parseMarkdownSection(chapter.id, chapter.markdown);
+      expect(result.blocks.length, chapter.id).toBeGreaterThan(0);
+      expect(result.warnings, chapter.id).toHaveLength(0);
     }
+  });
+
+  it('uses ## and ### markdown headings as the chapter outline', () => {
+    const result = parseMarkdownSection('chapter-1', '## 第一节\n\n### 一个概念\n');
+    expect(result.blocks.filter((block) => block.type === 'heading')).toEqual([
+      expect.objectContaining({ level: 2, title: '第一节' }),
+      expect.objectContaining({ level: 3, title: '一个概念' }),
+    ]);
   });
 });
