@@ -51,6 +51,14 @@ class LlmInvokeRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1)
 
 
+class RouteLimitRequest(BaseModel):
+    """更新单个 provider/model 路由的并发上限。"""
+
+    provider: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    limit: int = Field(ge=1, le=128)
+
+
 @router.get("/models")
 def list_models() -> dict:
     """返回当前内存模型目录；只包含 model id。"""
@@ -152,6 +160,23 @@ def invoke(request: LlmInvokeRequest) -> dict:
         "role": str(request.role),
         "content": response.content,
     }
+
+
+@router.put("/runtime/limits")
+def update_runtime_limit(request: RouteLimitRequest) -> dict[str, object]:
+    """替换后续请求使用的 limiter generation。"""
+    runtime = getattr(app_state(), "llm_runtime", None)
+    if runtime is None:
+        raise HTTPException(status_code=503, detail="llm runtime is unavailable")
+    runtime.update_route_limit((request.provider, request.model), request.limit)
+    return {"ok": True, "provider": request.provider, "model": request.model, "limit": request.limit}
+
+
+def app_state() -> object:
+    """延迟读取 FastAPI 状态，避免模块初始化时绑定运行时。"""
+    from teacheragent.api.main import app
+
+    return app.state
 
 
 def _profile_payload(profile: dict) -> dict:

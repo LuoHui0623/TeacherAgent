@@ -1,5 +1,6 @@
 """统一 Agent 提示词资产加载。"""
 
+import hashlib
 from dataclasses import dataclass
 from importlib import resources
 
@@ -13,6 +14,12 @@ class Prompt:
 
     ref: str
     content: str
+    content_hash: str
+
+
+def _content_hash(content: str) -> str:
+    """计算提示词正文的稳定 SHA-256 哈希。"""
+    return "sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 def load_prompt(ref: str) -> Prompt:
@@ -27,4 +34,5 @@ def load_prompt(ref: str) -> Prompt:
     target = resources.files(_PACKAGE)
     for part in relative_parts:
         target = target.joinpath(part)
-    return Prompt(ref=normalized, content=target.read_text(encoding="utf-8"))
+    content = target.read_text(encoding="utf-8")
+    return Prompt(ref=normalized, content=content, content_hash=_content_hash(content))

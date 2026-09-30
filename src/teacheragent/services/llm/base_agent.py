@@ -7,9 +7,10 @@ from typing import Any
 from teacheragent.agent.tutor import build_tutor_agent
 from teacheragent.constants import AgentRole
 from teacheragent.infrastructure.llm import client as llm_client
-from teacheragent.infrastructure.llm.call_logger import log_llm_call
 from teacheragent.infrastructure.llm.invoke import invoke_llm
 from teacheragent.infrastructure.llm.settings import get_settings
+from teacheragent.infrastructure.llm.runtime import TaskRuntimeContext, get_llm_runtime
+from teacheragent.infrastructure.llm import client as llm_client
 
 
 class BaseAgent:
@@ -18,20 +19,23 @@ class BaseAgent:
     def __init__(self, role: AgentRole | str) -> None:
         self.role = AgentRole(str(role))
 
-    def invoke(self, messages: list[dict[str, str]]) -> Any:
+    def invoke(self, messages: list[dict[str, str]], *, task_context: TaskRuntimeContext | None = None) -> Any:
+        task_context = task_context or TaskRuntimeContext(role=str(self.role))
         if self.role is AgentRole.TUTOR:
-            return self._invoke_tutor(messages)
-        return invoke_llm(self.role, messages)
+            return self._invoke_tutor(messages, task_context=task_context)
+        return invoke_llm(self.role, messages, task_context=task_context)
 
-    def _invoke_tutor(self, messages: list[dict[str, str]]) -> Any:
+    def _invoke_tutor(self, messages: list[dict[str, str]], *, task_context: TaskRuntimeContext) -> Any:
         settings = get_settings(self.role)
-        input_text = json.dumps(messages, ensure_ascii=False)
-        with log_llm_call(settings, input_text) as record:
-            graph = build_tutor_agent(llm_client.build_client(settings))
-            result = graph.invoke({"messages": messages})
-            output = _last_message_content(result)
-            record.output_text = output
-            return SimpleNamespace(content=output)
+        runtime = get_llm_runtime()
+        model = runtime.get_model(settings, llm_client.build_client)
+        graph = build_tutor_agent(model, task_context=task_context)
+        result = graph.invoke(
+            {"messages": messages},
+            config={"metadata": {"task_context": task_context}},
+        )
+        output = _last_message_content(result)
+        return SimpleNamespace(content=output)
 
 
 def _last_message_content(result: dict[str, Any]) -> str:

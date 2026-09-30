@@ -26,7 +26,7 @@ def build_client(settings: LlmSettings) -> Any:
     )
 
 
-def extract_usage(response: Any) -> dict:
+def extract_usage(response: Any) -> dict[str, int]:
     """归一 token 用量；provider 未提供某字段时补 0。"""
     meta = getattr(response, "usage_metadata", None) or {}
     return {

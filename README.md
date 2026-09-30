@@ -42,6 +42,5 @@
 ## 设计哲学（节选）
 
 - **命名成族**：以**维护的核心对象**为族，整族共用一个朴素词根；同一概念只允许一种叫法。
-  例：大纲族围绕 `Outline` —— `Outline` / `OutlineNode` / `OutlineVersion`，不再混用 `CourseBlueprint` 这类不相干的比喻。
 
 完整声明见 `Arch.md` 的「命名」与 `.github/AGENTS.md` 的「代码哲学」。

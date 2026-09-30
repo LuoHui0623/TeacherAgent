@@ -1,24 +1,36 @@
 """FastAPI 应用入口。"""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
+from typing import Any, cast
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from teacheragent.api.routes import call_logs, llm, user_profile
 from teacheragent.infrastructure.store import migrate
+from teacheragent.infrastructure.llm.runtime import LlmRuntime, set_llm_runtime
 from teacheragent.services.llm import catalog, profiles
 from teacheragent.config import env
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    """启动时确保数据库 schema 就绪（迁移幂等，可重复执行）。"""
+async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
+    """初始化数据库和进程级 LLM 运行时，并在关闭时排空请求。"""
     migrate()
-    catalog.refresh_models()
+    refresh_models = cast(
+        Callable[[], dict[str, Any]],
+        getattr(catalog, "refresh_models"),
+    )
+    refresh_models()
     profiles.ensure_default_profiles()
-    yield
+    runtime = LlmRuntime()
+    application.state.llm_runtime = runtime
+    set_llm_runtime(runtime)
+    try:
+        yield
+    finally:
+        runtime.close()
 
 
 app = FastAPI(title="TeacherAgent API", lifespan=lifespan)
@@ -42,5 +54,5 @@ app.include_router(user_profile.router)
 
 
 @app.get("/health")
-def health() -> dict:
+def health() -> dict[str, str]:
     return {"status": "ok"}

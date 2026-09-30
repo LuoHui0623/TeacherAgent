@@ -7,6 +7,6 @@
 结构以 DDL 为准，等出现真实消费方再补，避免死代码。
 """
 
-from . import call_logs, llm_settings, user_profiles
+from . import call_logs, llm_runs, llm_settings, user_profiles
 
-__all__ = ["call_logs", "llm_settings", "user_profiles"]
+__all__ = ["call_logs", "llm_runs", "llm_settings", "user_profiles"]
