@@ -29,7 +29,7 @@ prompt = load_prompt("agent/prompts/tutor.md")
 ```
 
 `load_prompt` 只接受严格的 `agent/prompts/<name>.md` 形式。`Prompt.ref` 仅用于当前
-进程内的资产定位，不写入 `call_logs`；调用日志只记录实际输入、输出和调用元数据。
+进程内的资产定位，不写入 `llm_runs`；调用记录只记录实际输入、输出和调用元数据。
 
 ## 变更纪律
 

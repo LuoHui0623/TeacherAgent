@@ -1,11 +1,13 @@
-"""LLM Profile 与模型目录 API。"""
+"""LLM Profile、模型目录与运行时限流 API。"""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
+from teacheragent.api.services import get_runtime
 from teacheragent.constants import AgentRole
 from teacheragent.services import llm
 from teacheragent.infrastructure.llm import client
+from teacheragent.infrastructure.llm.runtime import LlmRuntime
 
 
 router = APIRouter(prefix="/llm")
@@ -52,11 +54,12 @@ class LlmInvokeRequest(BaseModel):
 
 
 class RouteLimitRequest(BaseModel):
-    """更新单个 provider/model 路由的并发上限。"""
+    """更新单个 provider/model 路由的限流上限。"""
 
     provider: str = Field(min_length=1)
     model: str = Field(min_length=1)
     limit: int = Field(ge=1, le=128)
+    requests_per_second: float | None = Field(default=None, ge=0)
 
 
 @router.get("/models")
@@ -163,20 +166,43 @@ def invoke(request: LlmInvokeRequest) -> dict:
 
 
 @router.put("/runtime/limits")
-def update_runtime_limit(request: RouteLimitRequest) -> dict[str, object]:
-    """替换后续请求使用的 limiter generation。"""
-    runtime = getattr(app_state(), "llm_runtime", None)
-    if runtime is None:
-        raise HTTPException(status_code=503, detail="llm runtime is unavailable")
-    runtime.update_route_limit((request.provider, request.model), request.limit)
-    return {"ok": True, "provider": request.provider, "model": request.model, "limit": request.limit}
+def update_runtime_limit(
+    request: RouteLimitRequest,
+    runtime: LlmRuntime = Depends(get_runtime),
+) -> dict[str, object]:
+    """替换后续请求使用的限流器，不影响已持有旧许可的请求。"""
+    runtime.update_route_limit(
+        (request.provider, request.model),
+        request.limit,
+        requests_per_second=request.requests_per_second,
+    )
+    return {
+        "ok": True,
+        "provider": request.provider,
+        "model": request.model,
+        "limit": request.limit,
+        "requests_per_second": request.requests_per_second,
+    }
 
 
-def app_state() -> object:
-    """延迟读取 FastAPI 状态，避免模块初始化时绑定运行时。"""
-    from teacheragent.api.main import app
-
-    return app.state
+@router.get("/runtime/limits")
+def list_runtime_limits(
+    runtime: LlmRuntime = Depends(get_runtime),
+) -> dict[str, list[dict[str, object]]]:
+    """返回各路由的并发上限、在飞数与等待数，供前端监控。"""
+    return {
+        "limits": [
+            {
+                "provider": stats.provider,
+                "model": stats.model,
+                "limit": stats.limit,
+                "in_flight": stats.in_flight,
+                "waiting": stats.waiting,
+                "requests_per_second": stats.requests_per_second,
+            }
+            for stats in runtime.limiter_stats()
+        ]
+    }
 
 
 def _profile_payload(profile: dict) -> dict:

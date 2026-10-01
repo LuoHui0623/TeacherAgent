@@ -30,7 +30,7 @@ Python 3.13 + uv。技术栈：FastAPI、LangChain、LangGraph、Neo4j（知识�
 
 - 分层单向依赖：`api → services → workflows / agent → capabilities → infrastructure`
 - `infrastructure` 不依赖领域代码；`shared` 保持纯工具层。
-- 所有普通 LLM 调用经 `infrastructure.llm.invoke_llm` 统一记录。
+- 所有 Agent 装配后的模型调用统一记录；普通调用经 `infrastructure.llm.invoke_llm`，Tutor 装配经 `services.llm.base_agent`。
 - `AgentRole` 与 `llm_profiles.role` 只有 `tutor`、`curriculum`。
 - 所有提示词经 `infrastructure.llm.prompts.load_prompt("agent/prompts/<name>.md")` 加载。
 

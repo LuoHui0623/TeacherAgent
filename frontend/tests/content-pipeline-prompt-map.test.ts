@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  callLogToPromptMapCall,
   createDemoPromptMapCall,
   mergePromptMapCalls,
+  runToPromptMapCall,
   sortPromptMapCalls,
 } from '../services/content-pipeline/promptMap';
 
@@ -33,8 +33,8 @@ describe('prompt map call stream', () => {
   });
 
   it('maps API audit rows to the three prompt-map sections', () => {
-    const call = callLogToPromptMapCall({
-      id: 7,
+    const call = runToPromptMapCall({
+      id: 'run-7',
       role: 'reviewer',
       provider: 'openai',
       model: 'model-a',
@@ -44,11 +44,13 @@ describe('prompt map call stream', () => {
       completion_tokens: 5,
       total_tokens: 15,
       duration_ms: 120,
-      status: 'ok',
+      status: 'success',
       error: '',
       created_at: '2026-09-19T09:00:00.000Z',
     });
 
+    expect(call.id).toBe('run-7');
+    expect(call.status).toBe('ok');
     expect(call.inputText).toBe('actual input');
     expect(call.outputText).toBe('actual output');
     expect(call.template).toContain('审阅章节草稿');

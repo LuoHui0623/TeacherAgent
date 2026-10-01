@@ -5,30 +5,30 @@ from pydantic import ValidationError
 
 from teacheragent.capabilities.llm.contracts import (
     LlmConfig,
+    LlmMessages,
     LlmRun,
     PromptSource,
-    PromptTrace,
     RunContext,
 )
 
 
-def _prompt_trace() -> PromptTrace:
-    return PromptTrace(
+def _llm_messages() -> LlmMessages:
+    return LlmMessages(
         sources=[PromptSource(ref="agent/prompts/tutor.md", content_hash="sha256:test")],
         template_text="You are a tutor.",
         messages=[{"role": "system", "content": "You are a tutor."}],
     )
 
 
-def test_prompt_trace_carries_source_and_input_messages():
-    trace = _prompt_trace()
+def test_llm_messages_carries_source_and_input_messages():
+    messages = _llm_messages()
 
-    assert trace.sources[0].ref == "agent/prompts/tutor.md"
-    assert trace.template_text == trace.messages[0]["content"]
+    assert messages.sources[0].ref == "agent/prompts/tutor.md"
+    assert messages.template_text == messages.messages[0]["content"]
 
 
-def test_prompt_trace_exposes_role_views_without_losing_order():
-    trace = PromptTrace(
+def test_llm_messages_exposes_role_views_without_losing_order():
+    messages = LlmMessages(
         sources=[PromptSource(ref="agent/prompts/tutor.md", content_hash="sha256:test")],
         template_text="You are a tutor.",
         messages=[
@@ -40,32 +40,32 @@ def test_prompt_trace_exposes_role_views_without_losing_order():
         ],
     )
 
-    assert trace.system_prompt == "You are a tutor."
-    assert trace.user_prompt == "第二问"
-    assert trace.messages[3]["tool_call_id"] == "call_1"
+    assert messages.system_prompt == "You are a tutor."
+    assert messages.user_prompt == "第二问"
+    assert messages.messages[3]["tool_call_id"] == "call_1"
 
 
-def test_prompt_trace_role_views_are_not_stored_fields():
-    trace = _prompt_trace()
+def test_llm_messages_role_views_are_not_stored_fields():
+    messages = _llm_messages()
 
-    assert "system_prompt" not in trace.model_dump()
-    assert "user_prompt" not in trace.model_dump()
+    assert "system_prompt" not in messages.model_dump()
+    assert "user_prompt" not in messages.model_dump()
 
 
-def test_prompt_trace_role_views_are_none_without_matching_message():
-    trace = PromptTrace(
+def test_llm_messages_role_views_are_none_without_matching_message():
+    messages = LlmMessages(
         sources=[PromptSource(ref="agent/prompts/tutor.md", content_hash="sha256:test")],
         template_text="You are a tutor.",
         messages=[{"role": "assistant", "content": "只有回答"}],
     )
 
-    assert trace.system_prompt is None
-    assert trace.user_prompt is None
+    assert messages.system_prompt is None
+    assert messages.user_prompt is None
 
 
 def test_run_context_carries_invocation_order():
     context = RunContext(
-        prompt_trace=_prompt_trace(),
+        llm_messages=_llm_messages(),
         invocation_id="invocation-1",
         sequence=2,
     )
@@ -81,7 +81,7 @@ def test_llm_run_carries_identity_prompt_and_status():
         invocation_id="invocation-1",
         sequence=1,
         role="tutor",
-        prompt_trace=_prompt_trace(),
+        llm_messages=_llm_messages(),
         status="running",
         started_at="2026-09-30T10:00:00Z",
     )
@@ -111,7 +111,7 @@ def test_contracts_reject_extra_fields_and_coerce_nothing():
     with pytest.raises(ValidationError):
         RunContext.model_validate(
             {
-                "prompt_trace": _prompt_trace().model_dump(),
+                "llm_messages": _llm_messages().model_dump(),
                 "invocation_id": "invocation-1",
                 "sequence": "2",
             }

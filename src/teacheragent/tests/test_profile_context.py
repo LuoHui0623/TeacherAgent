@@ -178,10 +178,10 @@ def test_profile_parse_call_log_contains_markdown_version_anchor(monkeypatch):
 
     context = profile_context.load_outline_profile_context("admin")
 
-    logs = repositories.call_logs.list_by_role(str(AgentRole.CURRICULUM))
-    assert logs
-    assert row["id"] in logs[0]["input_text"]
-    assert row["content_hash"] in logs[0]["input_text"]
+    runs = repositories.llm_runs.list_runs(role=str(AgentRole.CURRICULUM))
+    assert runs
+    assert row["id"] in runs[0]["input_messages_json"]
+    assert row["content_hash"] in runs[0]["input_messages_json"]
     assert context.markdown_version_id == row["id"]
     assert context.content_hash == row["content_hash"]
 

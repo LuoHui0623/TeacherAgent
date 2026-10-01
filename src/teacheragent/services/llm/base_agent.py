@@ -8,9 +8,8 @@ from teacheragent.agent.tutor import build_tutor_agent
 from teacheragent.constants import AgentRole
 from teacheragent.infrastructure.llm import client as llm_client
 from teacheragent.infrastructure.llm.invoke import invoke_llm
-from teacheragent.infrastructure.llm.settings import get_settings
 from teacheragent.infrastructure.llm.runtime import TaskRuntimeContext, get_llm_runtime
-from teacheragent.infrastructure.llm import client as llm_client
+from teacheragent.infrastructure.llm.settings import get_settings
 
 
 class BaseAgent:
@@ -34,8 +33,7 @@ class BaseAgent:
             {"messages": messages},
             config={"metadata": {"task_context": task_context}},
         )
-        output = _last_message_content(result)
-        return SimpleNamespace(content=output)
+        return SimpleNamespace(content=_last_message_content(result))
 
 
 def _last_message_content(result: dict[str, Any]) -> str:

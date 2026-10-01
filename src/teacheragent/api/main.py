@@ -7,7 +7,8 @@ from typing import Any, cast
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from teacheragent.api.routes import call_logs, llm, user_profile
+from teacheragent.api.routes import llm, llm_runs, user_profile
+from teacheragent.api.services import AppServices, SERVICES_ATTRIBUTE
 from teacheragent.infrastructure.store import migrate
 from teacheragent.infrastructure.llm.runtime import LlmRuntime, set_llm_runtime
 from teacheragent.services.llm import catalog, profiles
@@ -25,7 +26,7 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
     refresh_models()
     profiles.ensure_default_profiles()
     runtime = LlmRuntime()
-    application.state.llm_runtime = runtime
+    setattr(application.state, SERVICES_ATTRIBUTE, AppServices(llm_runtime=runtime))
     set_llm_runtime(runtime)
     try:
         yield
@@ -49,7 +50,7 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 app.include_router(llm.router)
-app.include_router(call_logs.router)
+app.include_router(llm_runs.router)
 app.include_router(user_profile.router)
 
 

@@ -3,10 +3,10 @@
 import pytest
 
 from teacheragent.constants import AgentRole
-from teacheragent.infrastructure.llm.invoke import invoke_llm
 from teacheragent.infrastructure.llm import client
+from teacheragent.infrastructure.llm.invoke import invoke_llm
 from teacheragent.infrastructure.store import repositories
-from teacheragent.infrastructure.store.sqlite.tables.call_logs import CallLogRow
+from teacheragent.infrastructure.store.sqlite.tables.llm_runs import LlmRunRow
 
 
 class _FakeResponse:
@@ -19,13 +19,13 @@ class _FakeClient:
         return _FakeResponse()
 
 
-def _latest() -> CallLogRow:
-    logs = repositories.call_logs.list_by_role(str(AgentRole.TUTOR))
-    assert logs, "日志未落库"
-    return logs[0]
+def _latest() -> LlmRunRow:
+    rows = repositories.llm_runs.list_runs(role=str(AgentRole.TUTOR))
+    assert rows, "运行记录未落库"
+    return rows[0]
 
 
-def test_success_writes_log_with_usage(monkeypatch):
+def test_success_writes_run_with_usage(monkeypatch):
     monkeypatch.setattr(client, "build_client", lambda _settings: _FakeClient())
 
     response = invoke_llm(
@@ -34,15 +34,16 @@ def test_success_writes_log_with_usage(monkeypatch):
     )
 
     assert response.content == "fake-answer"
-    log = _latest()
-    assert log["status"] == "ok"
-    assert log["role"] == "tutor"
-    assert log["total_tokens"] == 3
-    assert log["output_text"] == "fake-answer"
-    assert "prompt_ref" not in log
+    run = _latest()
+    assert run["status"] == "success"
+    assert run["role"] == "tutor"
+    assert run["total_tokens"] == 3
+    assert "fake-answer" in run["output_message_json"]
 
 
-def test_client_build_failure_is_logged_and_reraised(monkeypatch):
+def test_client_build_failure_propagates_without_run_record(monkeypatch):
+    """建客户端失败发生在记录边界之外，因此不产生 `llm_runs` 行。"""
+
     def _boom(_settings):
         raise RuntimeError("missing api key")
 
@@ -51,9 +52,7 @@ def test_client_build_failure_is_logged_and_reraised(monkeypatch):
     with pytest.raises(RuntimeError, match="missing api key"):
         invoke_llm(AgentRole.TUTOR, [{"role": "user", "content": "hi"}])
 
-    log = _latest()
-    assert log["status"] == "error"
-    assert "missing api key" in log["error"]
+    assert repositories.llm_runs.list_runs(role=str(AgentRole.TUTOR)) == []
 
 
 def test_settings_are_read_on_every_call(monkeypatch):

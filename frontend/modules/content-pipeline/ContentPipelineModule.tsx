@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import {
   ArrowClockwiseIcon,
+  CaretDownIcon,
+  CaretUpIcon,
   CheckCircleIcon,
   CircleIcon,
   CursorClickIcon,
   ClockIcon,
   DatabaseIcon,
-  FlowArrowIcon,
   GitBranchIcon,
   HandIcon,
   PauseIcon,
@@ -17,22 +18,15 @@ import {
   WarningCircleIcon,
 } from '@phosphor-icons/react';
 
-import {
-  mainWorkflowDefinition,
-  mainWorkflowTemplate,
-  mainWorkflowVersion,
-} from '../../mocks/content-pipeline/main-workflow';
+import { mainWorkflowDefinition } from '../../mocks/content-pipeline/main-workflow';
 import type {
   NodeRunStatus,
   WorkflowEdgeDefinition,
-  WorkflowDefinition,
   NodeAnchorSide,
   WorkflowNodeKind,
-  WorkflowNodePosition,
   WorkflowRunStatus,
 } from '../../services/content-pipeline/types';
 import { diffText } from '../../services/content-pipeline/artifactDiff';
-import { WorkflowEditSession } from '../../services/content-pipeline/workflowEditor';
 import { useWorkbenchStore } from '../../services/workbenchStore';
 import { domId } from '../../shared/ids';
 import { Button, SegmentedControl, toast } from '../../shared/ui';
@@ -71,14 +65,6 @@ interface DemoArtifact {
 }
 
 type CanvasTool = 'hand' | 'pointer';
-
-interface ConnectionDraft {
-  fromNodeId: string;
-  fromSide: NodeAnchorSide;
-  x: number;
-  y: number;
-  target?: { nodeId: string; side: NodeAnchorSide };
-}
 
 interface PanSession {
   clientX: number;
@@ -362,20 +348,12 @@ export function ContentPipelineModule() {
   const [artifacts, setArtifacts] = useState(initialArtifacts);
   const [promptCalls, setPromptCalls] = useState<PromptMapCall[]>(initialPromptMapCalls);
   const [comment, setComment] = useState('');
-  const [editMode, setEditMode] = useState(false);
-  const [editSession] = useState(() => new WorkflowEditSession(mainWorkflowVersion));
-  const [draftDefinition, setDraftDefinition] = useState<WorkflowDefinition>(() =>
-    structuredClone(mainWorkflowDefinition),
-  );
-  const [canvasPositions, setCanvasPositions] =
-    useState<Record<string, WorkflowNodePosition>>(nodePositions);
-  const [templateVersion, setTemplateVersion] = useState(mainWorkflowVersion.version);
   const [canvasTool, setCanvasTool] = useState<CanvasTool>('pointer');
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [panSession, setPanSession] = useState<PanSession | null>(null);
-  const [connectionDraft, setConnectionDraft] = useState<ConnectionDraft | null>(null);
   const [shiftPressed, setShiftPressed] = useState(false);
   const [chapterDecisions, setChapterDecisions] = useState(initialChapterDecisions);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
 
   useEffect(() => {
     const state = useWorkbenchStore.getState();
@@ -417,10 +395,10 @@ export function ContentPipelineModule() {
   }, []);
 
   const selectedNode =
-    draftDefinition.nodes.find((node) => node.id === selectedNodeId) ??
-    draftDefinition.nodes[0];
-  const graphWidth = Math.max(...Object.values(canvasPositions).map((item) => item.x)) + 240;
-  const graphHeight = Math.max(...Object.values(canvasPositions).map((item) => item.y)) + 150;
+    mainWorkflowDefinition.nodes.find((node) => node.id === selectedNodeId) ??
+    mainWorkflowDefinition.nodes[0];
+  const graphWidth = Math.max(...Object.values(nodePositions).map((item) => item.x)) + 240;
+  const graphHeight = Math.max(...Object.values(nodePositions).map((item) => item.y)) + 150;
   const selectedArtifacts = artifacts.filter((artifact) => artifact.nodeId === selectedNode.id);
   const selectedDiff = selectedArtifacts.find((artifact) => artifact.before && artifact.after);
   const diffLines = selectedDiff?.before && selectedDiff.after
@@ -441,118 +419,6 @@ export function ContentPipelineModule() {
         status,
       }),
     ]));
-  }
-
-  function findNearestAnchor(
-    point: { x: number; y: number },
-    fromNodeId: string,
-    fromSide: NodeAnchorSide,
-  ) {
-    let best:
-      | { nodeId: string; side: NodeAnchorSide; distance: number }
-      | undefined;
-    for (const node of draftDefinition.nodes) {
-      if (node.id === fromNodeId) continue;
-      const position = canvasPositions[node.id];
-      if (!position) continue;
-      for (const side of ['top', 'right', 'bottom', 'left'] as NodeAnchorSide[]) {
-        const outputToInput = isOutputSide(fromSide) && !isOutputSide(side);
-        const inputToOutput = !isOutputSide(fromSide) && isOutputSide(side);
-        if (!outputToInput && !inputToOutput) continue;
-        const anchor = anchorPoint(position, side);
-        const distance = Math.hypot(anchor.x - point.x, anchor.y - point.y);
-        if (distance <= 34 && (!best || distance < best.distance)) {
-          best = { nodeId: node.id, side, distance };
-        }
-      }
-    }
-    return best ? { nodeId: best.nodeId, side: best.side } : undefined;
-  }
-
-  function connectionPoint(
-    event: ReactPointerEvent<HTMLElement>,
-    nodeId: string,
-    side: NodeAnchorSide,
-  ) {
-    const canvas = event.currentTarget.closest('.pipeline-canvas');
-    const position = canvasPositions[nodeId];
-    if (!canvas || !position) return { x: 0, y: 0 };
-    return {
-      x: anchorPoint(
-        { x: position.x + canvasOffset.x, y: position.y + canvasOffset.y },
-        side,
-      ).x - canvasOffset.x,
-      y: anchorPoint(
-        { x: position.x + canvasOffset.x, y: position.y + canvasOffset.y },
-        side,
-      ).y - canvasOffset.y,
-    };
-  }
-
-  function startConnection(
-    event: ReactPointerEvent<HTMLElement>,
-    nodeId: string,
-    side: NodeAnchorSide,
-  ) {
-    if (!editMode || canvasTool !== 'pointer') return;
-    event.preventDefault();
-    event.stopPropagation();
-    const point = connectionPoint(event, nodeId, side);
-    setConnectionDraft({ fromNodeId: nodeId, fromSide: side, ...point });
-  }
-
-  function completeConnection() {
-    if (!connectionDraft?.target) {
-      setConnectionDraft(null);
-      return;
-    }
-    const startNode = draftDefinition.nodes.find(
-      (node) => node.id === connectionDraft.fromNodeId,
-    );
-    const targetNode = draftDefinition.nodes.find(
-      (node) => node.id === connectionDraft.target?.nodeId,
-    );
-    if (!startNode || !targetNode) {
-      setConnectionDraft(null);
-      return;
-    }
-    const fromOutput = isOutputSide(connectionDraft.fromSide);
-    const fromNode = fromOutput ? startNode : targetNode;
-    const toNode = fromOutput ? targetNode : startNode;
-    const fromSide = fromOutput ? connectionDraft.fromSide : connectionDraft.target.side;
-    const toSide = fromOutput ? connectionDraft.target.side : connectionDraft.fromSide;
-    const outputPort = fromNode.outputs[0];
-    const inputPort = toNode.inputs[0];
-    if (!outputPort || !inputPort) {
-      toast('连接端点没有可用 Contract', { variant: 'error' });
-      setConnectionDraft(null);
-      return;
-    }
-    if (outputPort.artifactType !== inputPort.artifactType) {
-      toast('输出与输入 Contract 不兼容', { variant: 'error' });
-      setConnectionDraft(null);
-      return;
-    }
-    editSession.addEdge({
-      id: `edge-${fromNode.id}-${toNode.id}-${Date.now()}`,
-      from: { nodeId: fromNode.id, portId: outputPort.id },
-      to: { nodeId: toNode.id, portId: inputPort.id },
-      fromSide,
-      toSide,
-    });
-    setDraftDefinition(editSession.getDraft());
-    setConnectionDraft(null);
-  }
-
-  function resetDemo() {
-    setNodeStatuses(initialNodeStatuses);
-    setRunStatus('waiting-human');
-    setEvents(initialEvents);
-    setArtifacts(initialArtifacts);
-    setPromptCalls(initialPromptMapCalls);
-    setSelectedNodeId('chapter-approval');
-    setComment('');
-    setChapterDecisions(initialChapterDecisions);
   }
 
   function approveCurrentNode() {
@@ -701,35 +567,6 @@ export function ContentPipelineModule() {
     toast(`已从 ${selectedNode.label} 创建运行分支`);
   }
 
-  function updateSelectedConfig(key: string, value: string | number | boolean) {
-    editSession.updateNode(selectedNode.id, {
-      config: { [key]: value },
-    });
-    setDraftDefinition(editSession.getDraft());
-  }
-
-  function toggleSelectedNode() {
-    editSession.setNodeEnabled(selectedNode.id, selectedNode.enabled === false);
-    setDraftDefinition(editSession.getDraft());
-  }
-
-  function saveTemplateChanges() {
-    const issues = editSession.validate();
-    if (issues.length > 0) {
-      toast(issues[0].message, { variant: 'error' });
-      return;
-    }
-    const nextVersion = editSession.commit({
-      id: `${mainWorkflowTemplate.id}-v${templateVersion + 1}`,
-      createdBy: 'user',
-      createdAt: new Date().toISOString(),
-    });
-    setTemplateVersion(nextVersion.version);
-    setDraftDefinition(editSession.getDraft());
-    setEditMode(false);
-    toast(`模板已保存为 v${nextVersion.version}`, { variant: 'success' });
-  }
-
   function requestChanges() {
     appendPromptCall('reviser', comment.trim() || '根据用户审批意见重新整理章节。');
     setNodeStatuses((current) => ({
@@ -764,217 +601,90 @@ export function ContentPipelineModule() {
             多角色 Agent 协作、结构化产物和人工审批的运行可视化。
           </p>
         </div>
-        <div className="pipeline-header__actions">
-          <span className="pipeline-metric">耗时 <strong>2m 34s</strong></span>
-          <span className="pipeline-metric">Tokens <strong>13.5k</strong></span>
-          <span className="pipeline-metric">成本 <strong>$0.027</strong></span>
-          <span className={`pipeline-run-status is-${runStatus}`}>
-            <CircleIcon size={9} weight="fill" />
-            {runStatusLabels[runStatus]}
-          </span>
-          <Button
-            id="content-pipeline-run"
-            variant="secondary"
-            leadingIcon={<PlayIcon size={15} weight="fill" />}
-            onClick={() => {
-              appendPromptCall('curriculum', '继续执行当前课程设计工作流中的待处理节点。');
-              setRunStatus('running');
-              toast('运行已继续，当前演示将调度待执行节点');
-            }}
-          >
-            继续运行
-          </Button>
-          <Button
-            id="content-pipeline-pause"
-            variant="secondary"
-            leadingIcon={<PauseIcon size={15} weight="fill" />}
-            onClick={() => setRunStatus('paused')}
-          >
-            暂停
-          </Button>
-          <Button
-            id="content-pipeline-reset"
-            variant="secondary"
-            leadingIcon={<ArrowClockwiseIcon size={15} weight="bold" />}
-            onClick={resetDemo}
-          >
-            重置演示
-          </Button>
-          <Button
-            id="content-pipeline-edit-toggle"
-            variant={editMode ? 'primary' : 'secondary'}
-            onClick={() => setEditMode((current) => !current)}
-          >
-            {editMode ? '退出编辑' : '编辑模板'}
-          </Button>
-          {editMode && (
-            <Button
-              id="content-pipeline-edit-save"
-              variant="primary"
-              onClick={saveTemplateChanges}
-            >
-              保存模板
-            </Button>
-          )}
-        </div>
       </header>
 
       <div className="pipeline-layout">
-        <aside className="card pipeline-sidebar">
-          <div className="pipeline-sidebar__section">
-            <span className="pipeline-section-label">模板</span>
-            <button
-              type="button"
-              id="content-pipeline-template-main"
-              className="pipeline-template is-active"
-              onClick={() => toast('当前为主流程模板')}
-            >
-              <span className="pipeline-template__icon">
-                <FlowArrowIcon size={18} weight="duotone" />
-              </span>
-              <span>
-                <strong>{mainWorkflowTemplate.name}</strong>
-                <small>v{templateVersion} · {draftDefinition.nodes.length} 节点</small>
-              </span>
-            </button>
-          </div>
-
-          <div className="pipeline-sidebar__section">
-            <span className="pipeline-section-label">运行历史</span>
-            <button
-              type="button"
-              id="content-pipeline-run-current"
-              className="pipeline-run-item is-active"
-              onClick={() => toast('已切换到当前运行')}
-            >
-              <span>
-                <strong>前端性能优化</strong>
-                <small>09:18 启动 · 等待人工</small>
-              </span>
-              <span className="pipeline-run-item__dot is-waiting" />
-            </button>
-            <button
-              type="button"
-              id="content-pipeline-run-history-1"
-              className="pipeline-run-item"
-              onClick={() => toast('历史运行')}
-            >
-              <span>
-                <strong>线性代数复习</strong>
-                <small>昨天 · 已完成</small>
-              </span>
-              <CheckCircleIcon size={14} weight="fill" />
-            </button>
-          </div>
-        </aside>
-
         <section className="card pipeline-canvas-card">
-          <div className="pipeline-canvas__toolbar">
-            <div>
+          <div className="pipeline-canvas-header">
+            <div className="pipeline-canvas-header__title">
               <strong>教材生产主流程</strong>
               <span>只读运行视图</span>
             </div>
-            <SegmentedControl
-              value={canvasTool}
-              onChange={setCanvasTool}
-              ariaLabel="pipeline canvas 工具栏"
-              className="pipeline-canvas-tools"
-              options={[
-                {
-                  value: 'pointer',
-                  id: 'content-pipeline-canvas-tool-pointer',
-                  label: <CursorClickIcon size={15} weight="bold" />,
-                  ariaLabel: '指针模式',
-                  title: '指针模式：选择节点和创建连线',
-                },
-                {
-                  value: 'hand',
-                  id: 'content-pipeline-canvas-tool-hand',
-                  label: <HandIcon size={15} weight="bold" />,
-                  ariaLabel: '手模式',
-                  title: '手模式：拖动画布，鼠标中键也可触发',
-                },
-              ]}
-            />
-            <div className="pipeline-legend">
-              <span className="is-complete">已完成</span>
-              <span className="is-active">执行中</span>
-              <span className="is-waiting">等待审批</span>
-              <span className="is-pending">等待</span>
+            <div className="pipeline-canvas-header__actions">
+              <span className="pipeline-metric">耗时 <strong>2m 34s</strong></span>
+              <span className="pipeline-metric">Tokens <strong>13.5k</strong></span>
+              <span className="pipeline-metric">成本 <strong>$0.027</strong></span>
+              <SegmentedControl
+                value={canvasTool}
+                onChange={setCanvasTool}
+                ariaLabel="pipeline canvas 工具栏"
+                className="pipeline-canvas-tools"
+                options={[
+                  {
+                    value: 'pointer',
+                    id: 'content-pipeline-canvas-tool-pointer',
+                    label: <CursorClickIcon size={15} weight="bold" />,
+                    ariaLabel: '指针模式',
+                    title: '指针模式：选择节点',
+                  },
+                  {
+                    value: 'hand',
+                    id: 'content-pipeline-canvas-tool-hand',
+                    label: <HandIcon size={15} weight="bold" />,
+                    ariaLabel: '手模式',
+                    title: '手模式：拖动画布，鼠标中键也可触发',
+                  },
+                ]}
+              />
             </div>
           </div>
 
-          <div className="pipeline-canvas__scroll">
+          <div
+            className={`pipeline-canvas__scroll is-tool-${canvasTool} ${panSession ? 'is-panning' : ''}`}
+            onPointerDown={(event) => {
+              const target = event.target;
+              const onNode =
+                target instanceof HTMLElement &&
+                target.closest('.pipeline-node') !== null;
+              const panGesture =
+                event.button === 1 ||
+                canvasTool === 'hand' ||
+                (event.button === 0 && !onNode);
+              if (!panGesture) return;
+              event.preventDefault();
+              setPanSession({
+                clientX: event.clientX,
+                clientY: event.clientY,
+                originX: canvasOffset.x,
+                originY: canvasOffset.y,
+              });
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            onPointerMove={(event) => {
+              if (!panSession) return;
+              setCanvasOffset({
+                x: panSession.originX + event.clientX - panSession.clientX,
+                y: panSession.originY + event.clientY - panSession.clientY,
+              });
+            }}
+            onPointerUp={(event) => {
+              if (!panSession) return;
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+              }
+              setPanSession(null);
+            }}
+            onPointerCancel={() => setPanSession(null)}
+            onAuxClick={(event) => {
+              if (event.button === 1) event.preventDefault();
+            }}
+          >
             <div
               className={`pipeline-canvas is-tool-${canvasTool}`}
               style={{
                 width: graphWidth,
                 height: graphHeight,
                 transform: `translate(${canvasOffset.x}px, ${canvasOffset.y}px)`,
-              }}
-              onPointerDown={(event) => {
-                if (event.button === 1 || canvasTool === 'hand') {
-                  event.preventDefault();
-                  setPanSession({
-                    clientX: event.clientX,
-                    clientY: event.clientY,
-                    originX: canvasOffset.x,
-                    originY: canvasOffset.y,
-                  });
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                }
-              }}
-              onPointerMove={(event) => {
-                if (panSession) {
-                  setCanvasOffset({
-                    x: panSession.originX + event.clientX - panSession.clientX,
-                    y: panSession.originY + event.clientY - panSession.clientY,
-                  });
-                  return;
-                }
-                if (!connectionDraft) return;
-                const rect = event.currentTarget.getBoundingClientRect();
-                const point = {
-                  x: event.clientX - rect.left,
-                  y: event.clientY - rect.top,
-                };
-                setConnectionDraft({
-                  ...connectionDraft,
-                  ...point,
-                  target: findNearestAnchor(
-                    point,
-                    connectionDraft.fromNodeId,
-                    connectionDraft.fromSide,
-                  ),
-                });
-              }}
-              onPointerUp={() => {
-                if (connectionDraft) completeConnection();
-                setPanSession(null);
-              }}
-              onPointerCancel={() => {
-                setConnectionDraft(null);
-                setPanSession(null);
-              }}
-              onAuxClick={(event) => {
-                if (event.button === 1) event.preventDefault();
-              }}
-              onDragOver={(event) => {
-                if (editMode) event.preventDefault();
-              }}
-              onDrop={(event) => {
-                if (!editMode) return;
-                event.preventDefault();
-                const nodeId = event.dataTransfer.getData('text/plain');
-                if (!nodeId) return;
-                const rect = event.currentTarget.getBoundingClientRect();
-                const position = {
-                  x: Math.max(0, event.clientX - rect.left - 87),
-                  y: Math.max(0, event.clientY - rect.top - 38),
-                };
-                editSession.setNodePosition(nodeId, position.x, position.y);
-                setDraftDefinition(editSession.getDraft());
-                setCanvasPositions((current) => ({ ...current, [nodeId]: position }));
               }}
             >
               <svg
@@ -995,9 +705,9 @@ export function ContentPipelineModule() {
                     <path d="M 0 0 L 10 5 L 0 10 z" />
                   </marker>
                 </defs>
-                {draftDefinition.edges.map((edge) => {
-                  const source = canvasPositions[edge.from.nodeId];
-                  const target = canvasPositions[edge.to.nodeId];
+                {mainWorkflowDefinition.edges.map((edge) => {
+                  const source = nodePositions[edge.from.nodeId];
+                  const target = nodePositions[edge.to.nodeId];
                   if (!source || !target) return null;
                   return (
                     <path
@@ -1008,27 +718,10 @@ export function ContentPipelineModule() {
                     />
                   );
                 })}
-                {connectionDraft && (() => {
-                  const sourcePosition = canvasPositions[connectionDraft.fromNodeId];
-                  const targetPosition = connectionDraft.target
-                    ? canvasPositions[connectionDraft.target.nodeId]
-                    : undefined;
-                  if (!sourcePosition) return null;
-                  const start = anchorPoint(sourcePosition, connectionDraft.fromSide);
-                  const end = targetPosition
-                    ? anchorPoint(targetPosition, connectionDraft.target!.side)
-                    : { x: connectionDraft.x, y: connectionDraft.y };
-                  return (
-                    <path
-                      d={`M ${start.x} ${start.y} L ${end.x} ${end.y}`}
-                      className={`pipeline-edge is-draft ${connectionDraft.target ? 'is-snapped' : ''}`}
-                    />
-                  );
-                })()}
               </svg>
 
-              {draftDefinition.nodes.map((node) => {
-                const position = canvasPositions[node.id];
+              {mainWorkflowDefinition.nodes.map((node) => {
+                const position = nodePositions[node.id];
                 const status = nodeStatuses[node.id] ?? 'pending';
                 const selected = node.id === selectedNode.id;
                 return (
@@ -1038,10 +731,6 @@ export function ContentPipelineModule() {
                     id={domId('content-pipeline', 'node', node.id)}
                     className={`pipeline-node is-${status} ${selected ? 'is-selected' : ''} ${node.enabled === false ? 'is-disabled' : ''}`}
                     style={{ left: position.x, top: position.y }}
-                    draggable={editMode}
-                    onDragStart={(event) => {
-                      event.dataTransfer.setData('text/plain', node.id);
-                    }}
                     aria-pressed={selected}
                     onClick={() => selectNode(node.id)}
                   >
@@ -1055,34 +744,93 @@ export function ContentPipelineModule() {
                     <span className="pipeline-node__status">
                       {statusLabels[status]}
                     </span>
-                    {editMode &&
-                      canvasTool === 'pointer' &&
-                      (['top', 'right', 'bottom', 'left'] as NodeAnchorSide[]).map(
-                        (side) => (
-                          <span
-                            key={side}
-                            id={domId('content-pipeline', 'anchor', node.id, side)}
-                            role="button"
-                            tabIndex={0}
-                            className={`pipeline-anchor is-${side} ${
-                              connectionDraft?.target?.nodeId === node.id &&
-                              connectionDraft.target.side === side
-                                ? 'is-snapped'
-                                : ''
-                            }`}
-                            title={`${node.label}：${side}`}
-                            onPointerDown={(event) => startConnection(event, node.id, side)}
-                          />
-                        ),
-                      )}
                   </button>
                 );
               })}
+            </div>
+            <div className="pipeline-legend">
+              <span className="is-complete">已完成</span>
+              <span className="is-active">执行中</span>
+              <span className="is-waiting">等待审批</span>
+              <span className="is-pending">等待</span>
             </div>
           </div>
         </section>
 
         <aside className="card pipeline-inspector">
+          <div className="pipeline-inspector__top">
+            <div className="pipeline-header__actions">
+              <span className={`pipeline-run-status is-${runStatus}`}>
+                <CircleIcon size={9} weight="fill" />
+                {runStatusLabels[runStatus]}
+              </span>
+              <Button
+                id="content-pipeline-run"
+                variant="secondary"
+                leadingIcon={<PlayIcon size={15} weight="fill" />}
+                onClick={() => {
+                  appendPromptCall('curriculum', '继续执行当前课程设计工作流中的待处理节点。');
+                  setRunStatus('running');
+                  toast('运行已继续，当前演示将调度待执行节点');
+                }}
+              >
+                继续运行
+              </Button>
+              <Button
+                id="content-pipeline-pause"
+                variant="secondary"
+                leadingIcon={<PauseIcon size={15} weight="fill" />}
+                onClick={() => setRunStatus('paused')}
+              >
+                暂停
+              </Button>
+            </div>
+
+            <div className={`pipeline-history-window ${historyExpanded ? 'is-expanded' : ''}`}>
+              <button
+                type="button"
+                id="content-pipeline-history-toggle"
+                className="pipeline-history-window__toggle"
+                aria-expanded={historyExpanded}
+                onClick={() => setHistoryExpanded((current) => !current)}
+              >
+                <span>
+                  <strong>运行历史</strong>
+                  <small>当前运行与历史记录</small>
+                </span>
+                {historyExpanded ? <CaretUpIcon size={16} /> : <CaretDownIcon size={16} />}
+              </button>
+              {historyExpanded && (
+                <div className="pipeline-history-window__list">
+                  <button
+                    type="button"
+                    id="content-pipeline-run-current"
+                    className="pipeline-run-item is-active"
+                    onClick={() => toast('已切换到当前运行')}
+                  >
+                    <span>
+                      <strong>前端性能优化</strong>
+                      <small>09:18 启动 · 等待人工</small>
+                    </span>
+                    <span className="pipeline-run-item__dot is-waiting" />
+                  </button>
+                  <button
+                    type="button"
+                    id="content-pipeline-run-history-1"
+                    className="pipeline-run-item"
+                    onClick={() => toast('历史运行')}
+                  >
+                    <span>
+                      <strong>线性代数复习</strong>
+                      <small>昨天 · 已完成</small>
+                    </span>
+                    <CheckCircleIcon size={14} weight="fill" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           <header className="pipeline-inspector__header">
             <span className="pipeline-inspector__kind">
               {kindLabels[selectedNode.kind]}
@@ -1157,53 +905,6 @@ export function ContentPipelineModule() {
                   提出意见
                 </Button>
               </div>
-            </div>
-          )}
-
-          {editMode && (
-            <div className="pipeline-editor">
-              <span className="pipeline-section-label">节点配置</span>
-              <label className="pipeline-editor__toggle" htmlFor="content-pipeline-node-enabled">
-                <input
-                  id="content-pipeline-node-enabled"
-                  type="checkbox"
-                  checked={selectedNode.enabled !== false}
-                  onChange={toggleSelectedNode}
-                />
-                启用节点
-              </label>
-              <label htmlFor="content-pipeline-node-prompt">Prompt Ref</label>
-              <input
-                id="content-pipeline-node-prompt"
-                className="ui-input"
-                value={String(selectedNode.config.promptRef ?? '')}
-                onChange={(event) => updateSelectedConfig('promptRef', event.target.value)}
-              />
-              <label htmlFor="content-pipeline-node-model">模型</label>
-              <input
-                id="content-pipeline-node-model"
-                className="ui-input"
-                value={String(selectedNode.config.model ?? '')}
-                onChange={(event) => updateSelectedConfig('model', event.target.value)}
-              />
-              <label htmlFor="content-pipeline-node-retries">最大重试次数</label>
-              <input
-                id="content-pipeline-node-retries"
-                className="ui-input"
-                type="number"
-                min={0}
-                value={selectedNode.retryPolicy?.maxAttempts ?? 0}
-                onChange={(event) => {
-                  editSession.updateNode(selectedNode.id, {
-                    retryPolicy: {
-                      maxAttempts: Number(event.target.value),
-                      backoffMs: selectedNode.retryPolicy?.backoffMs ?? 0,
-                      retryOn: selectedNode.retryPolicy?.retryOn ?? [],
-                    },
-                  });
-                  setDraftDefinition(editSession.getDraft());
-                }}
-              />
             </div>
           )}
 

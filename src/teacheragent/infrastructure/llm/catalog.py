@@ -12,8 +12,8 @@ from teacheragent.config import env
 from teacheragent.infrastructure.store import repositories
 
 
-MODEL_ENDPOINT = "https://opencode.ai/zen/go/v1/models"
-"""固定部署环境使用的模型列表地址。"""
+# 由 API 根地址拼装出的模型列表地址
+MODEL_ENDPOINT = env.get_api_url() + "/models"
 
 REQUEST_TIMEOUT_SECONDS = 20
 

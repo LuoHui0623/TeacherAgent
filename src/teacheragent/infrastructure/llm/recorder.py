@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
 
-from teacheragent.shared.llm_contracts import LlmRequestContext
+from teacheragent.capabilities.llm.contracts import LlmRequestContext
 from teacheragent.infrastructure.store import repositories
 
 
@@ -38,9 +38,9 @@ class RunRecorder:
                 "provider": provider,
                 "model": model,
                 "temperature": temperature,
-                "prompt_sources": [source.model_dump() for source in request.prompt_trace.sources],
-                "input_messages": request.prompt_trace.messages,
-                "tools": request.prompt_trace.tools,
+                "prompt_sources": [source.model_dump() for source in request.llm_messages.sources],
+                "input_messages": request.llm_messages.messages,
+                "tools": request.llm_messages.tools,
                 "started_at": started_at,
             }
         )
@@ -72,7 +72,7 @@ class RunRecorder:
 
 
 class RunHandle:
-    """调用过程中由 ChatModel 填充的结果字段。"""
+    """调用过程中由 LlmModel 填充的结果字段。"""
 
     def __init__(self) -> None:
         self.output_message: dict[str, Any] | None = None

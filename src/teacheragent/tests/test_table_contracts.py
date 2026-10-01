@@ -11,7 +11,6 @@ from teacheragent.infrastructure.store.sqlite import migrations, tables
 CONTRACTS = (
     tables.llm_settings,
     tables.llm_profiles,
-    tables.call_logs,
     tables.user_profiles,
 )
 

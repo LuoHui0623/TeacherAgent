@@ -98,7 +98,7 @@ src/teacheragent/
 ├── services/         # 业务编排入口：画像、教材、知识地图等领域服务
 ├── workflows/        # 具体流程边界与说明，不提供通用 Agent runtime
 ├── capabilities/     # 可复用输入 → 输出能力域，不等同于 Agent role
-├── infrastructure/   # LLM 调用、日志、模型目录、Profile 与 SQLite / Neo4j 持久化
+├── infrastructure/   # LLM 调用、通用调用日志、模型目录、Profile 与 SQLite / Neo4j 持久化
 ├── config/           # 配置：LLM settings（固化配置、环境变量、表覆盖值）、应用配置
 ├── constants/        # 通用常量与枚举：教材生命周期状态、Agent 角色名等；不提供提示词
 ├── tests/            # 测试
@@ -125,4 +125,4 @@ src/teacheragent/
 - 所有提示词统一在 `agent/prompts/`，由 `infrastructure.llm.prompts.load_prompt` 加载；不拆角色 `settings.md`。
 - Agent role 只有 `tutor` 与 `curriculum`；知识地图是 module / capability，不是独立 role。
 - SQL / 图数据库驱动只允许出现在 `infrastructure/store/` 内（由 `tests/test_layering.py::test_store_is_only_sql_owner` 强制）。
-- 所有普通 LLM 调用经 `infrastructure.llm.call_logger` 统一落库。
+- 调用记录由 `infrastructure/llm/model.py` 的唯一模型外观统一写入 `llm_runs`；它不单独构成能力域。

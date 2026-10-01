@@ -4,14 +4,15 @@
 
 | 子目录 | 负责 |
 |---|---|
-| `llm/` | LLM 调用基建：客户端、调用日志、模型目录、Profile、settings 合并、提示词加载 |
+| `llm/` | LLM 调用基建：客户端、模型目录、Profile、settings 合并、提示词加载 |
+| `call_logger.py` | 装配使用的通用调用日志机制；由 LLM 调用入口特别调用 |
 | `store/` | 持久化基建：SQLite 连接池与迁移、仓储、表行契约、DDL；Neo4j 驱动池 |
 
 ## 为什么独立成层
 
 `llm` 与调用日志曾放在 `capabilities/llm/`，但它们不是「某类动作或对象」的能力域，只能靠「能力层可经仓储访问存储」的例外条款苟活。
 
-它们又放不进 `shared/`：`shared/` 是**纯工具层**，`tests/test_layering.py::test_shared_layer_is_pure_utilities` 强制它无持久化依赖，而 `llm` 下的 `call_logger` / `catalog` / `profiles` / `settings` 四个模块都要读写 SQLite。
+它们又放不进 `shared/`：`shared/` 是**纯工具层**，`tests/test_layering.py::test_shared_layer_is_pure_utilities` 强制它无持久化依赖，而 `call_logger` / `llm/catalog` / `llm/profiles` / `llm/settings` 都要读写 SQLite。
 
 因此独立成基建层：允许依赖存储，但不允许承载领域语义。
 
@@ -27,7 +28,6 @@
 |---|---|
 | `client.py` | 建客户端、抽取 usage、错误描述 |
 | `invoke.py` | 读配置 → 建客户端 → 日志落库 → 调用 |
-| `call_logger.py` | 一次 LLM 调用的日志统一落库 |
 | `catalog.py` | 模型目录（内存候选 + 刷新） |
 | `profiles.py` | 按角色的 Profile 管理 |
 | `settings.py` | 固化配置 + 表覆盖值 + 环境变量的合并与保存 |

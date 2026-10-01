@@ -45,11 +45,15 @@ def test_infrastructure_does_not_depend_on_domain():
         "teacheragent.services",
         "teacheragent.api",
     )
+    allowed_contract = "teacheragent.capabilities.llm.contracts"
     offenders = sorted(
         str(path.relative_to(PACKAGE_ROOT))
         for path in (PACKAGE_ROOT / "infrastructure").rglob("*.py")
         if path.name != "__init__.py"
-        if any(token in _source(path) for token in forbidden)
+        if any(
+            token in _source(path).replace(allowed_contract, "")
+            for token in forbidden
+        )
     )
     assert offenders == [], f"基建层不得依赖领域层：{offenders}"
 

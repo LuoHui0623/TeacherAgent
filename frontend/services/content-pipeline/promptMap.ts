@@ -19,8 +19,9 @@ export interface PromptMapCall {
   template: string;
 }
 
-export interface CallLogApiRow {
-  id: number;
+/** `/llm/call-logs` 返回的真实请求行，字段由后端从 `llm_runs` 映射而来。 */
+export interface PromptMapCallApiRow {
+  id: string;
   role: string;
   provider: string;
   model: string;
@@ -30,9 +31,15 @@ export interface CallLogApiRow {
   completion_tokens: number;
   total_tokens: number;
   duration_ms: number;
-  status: 'ok' | 'error';
+  status: 'running' | 'success' | 'error' | 'cancelled';
   error: string;
   created_at: string;
+}
+
+function promptMapStatus(status: PromptMapCallApiRow['status']): PromptMapCallStatus {
+  if (status === 'success') return 'ok';
+  if (status === 'running') return 'running';
+  return 'error';
 }
 
 export const promptRoleLabels: Record<string, string> = {
@@ -87,9 +94,9 @@ export function mergePromptMapCalls(
   return sortPromptMapCalls([...merged.values()]);
 }
 
-export function callLogToPromptMapCall(row: CallLogApiRow): PromptMapCall {
+export function runToPromptMapCall(row: PromptMapCallApiRow): PromptMapCall {
   return {
-    id: String(row.id),
+    id: row.id,
     role: row.role,
     provider: row.provider,
     model: row.model,
@@ -99,7 +106,7 @@ export function callLogToPromptMapCall(row: CallLogApiRow): PromptMapCall {
     completionTokens: row.completion_tokens,
     totalTokens: row.total_tokens,
     durationMs: row.duration_ms,
-    status: row.status,
+    status: promptMapStatus(row.status),
     error: row.error,
     createdAt: row.created_at,
     template: promptTemplateForRole(row.role),
@@ -107,8 +114,8 @@ export function callLogToPromptMapCall(row: CallLogApiRow): PromptMapCall {
 }
 
 export async function fetchPromptMapCalls(limit = 100): Promise<PromptMapCall[]> {
-  const response = await apiGet<{ logs: CallLogApiRow[] }>(`/llm/call-logs?limit=${limit}`);
-  return sortPromptMapCalls(response.logs.map(callLogToPromptMapCall));
+  const response = await apiGet<{ logs: PromptMapCallApiRow[] }>(`/llm/call-logs?limit=${limit}`);
+  return sortPromptMapCalls(response.logs.map(runToPromptMapCall));
 }
 
 export function createDemoPromptMapCall({
