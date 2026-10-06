@@ -2,7 +2,7 @@
 
 ## 职责
 
-按 Learning Brief 产出结构化教材大纲：章节、学习目标、知识点、体量、依赖与验收标准。
+按 Learning Brief 产出结构化教材大纲：章节主题、学习任务、依赖与验收标准。
 
 ## 输入 → 输出
 
@@ -18,8 +18,9 @@
 ## 提示词
 
 - `agent/prompts/outline-architect.md`
+
 ## 代码设计哲学
 
-- `messages.py` 把 `LearningBrief` 与结构化画像一起注入角色消息；画像只注入一次，不在大纲节点中复制画像文本。
-- 画像的版本 ID 与内容哈希随 `learnerProfile.source` 进入模型输入，调用日志可回溯到具体 Markdown 版本。
+- `messages.py` 负责把 `LearningBrief` 与结构化画像解析为 outline prompt context；画像只注入一次，不在大纲节点中复制画像文本。
+- 画像版本 ID 与内容哈希属于画像解析和调用日志溯源元数据，不进入 outline prompt context。
 - 画像缺失分区不得臆测；需要假设时必须在输出中显式标注待确认。

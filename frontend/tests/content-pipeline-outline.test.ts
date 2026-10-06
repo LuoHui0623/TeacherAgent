@@ -6,7 +6,6 @@ import type { ArtifactVersion } from '../services/content-pipeline/types';
 
 const outline: OutlinePayload = {
   id: 'blueprint-outline-1',
-  briefId: 'brief-1',
   title: '前端性能优化',
   coveredOutcomeIds: ['diagnose', 'design'],
   items: [
@@ -14,14 +13,12 @@ const outline: OutlinePayload = {
       id: 'outline-1',
       title: '性能指标与测量',
       summary: '指标基础',
-      knowledgePointIds: ['metrics'],
       buildsOn: [],
       children: [
         {
           id: 'outline-1-1',
           title: '核心指标',
           summary: '核心指标',
-          knowledgePointIds: ['metrics'],
           buildsOn: [],
           children: [],
         },
@@ -31,7 +28,6 @@ const outline: OutlinePayload = {
       id: 'outline-2',
       title: '渲染性能',
       summary: '渲染基础',
-      knowledgePointIds: ['rendering'],
       buildsOn: ['outline-1'],
       children: [],
     },
@@ -39,7 +35,6 @@ const outline: OutlinePayload = {
       id: 'outline-3',
       title: '网络与缓存',
       summary: '网络优化',
-      knowledgePointIds: ['network'],
       buildsOn: ['outline-2'],
       children: [],
     },

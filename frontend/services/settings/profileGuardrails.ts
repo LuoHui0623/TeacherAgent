@@ -1,4 +1,4 @@
-export const CORE_PROFILE_SECTIONS = ['主修技术', '技术栈', '学习目标', '薄弱点'] as const;
+export const CORE_PROFILE_SECTIONS = ['主修技术', '技术栈', '学习目标'] as const;
 
 export type ProfileDiffKind = 'same' | 'add' | 'remove';
 

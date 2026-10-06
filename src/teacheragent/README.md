@@ -11,7 +11,7 @@ Python 3.13 + uv。技术栈：FastAPI、LangChain、LangGraph、Neo4j（知识�
 | `services/` | 业务编排入口与领域服务 |
 | `workflows/` | 具体业务流程说明与边界；不提供通用 Agent runtime |
 | `capabilities/` | 可复用的输入 → 输出能力域，不等同于 Agent role |
-| `infrastructure/` | LLM 客户端、调用日志、模型目录、Profile、SQLite 连接与仓储 |
+| `infrastructure/` | LLM 客户端、统一模型调用与限流、模型目录、Profile、SQLite 连接与仓储 |
 | `config/` | 固化配置、环境变量与路径；不访问 store |
 | `constants/` | 通用常量与 `AgentRole`（仅 `tutor` / `curriculum`） |
 | `docs/` | Agent、提示词与用户画像等领域规范 |
@@ -30,7 +30,8 @@ Python 3.13 + uv。技术栈：FastAPI、LangChain、LangGraph、Neo4j（知识�
 
 - 分层单向依赖：`api → services → workflows / agent → capabilities → infrastructure`
 - `infrastructure` 不依赖领域代码；`shared` 保持纯工具层。
-- 所有 Agent 装配后的模型调用统一记录；普通调用经 `infrastructure.llm.invoke_llm`，Tutor 装配经 `services.llm.base_agent`。
+- 所有 Agent 装配后的模型调用统一使用 `infrastructure.llm.model.LlmModel` 并记录到 `llm_runs`；普通调用经 `infrastructure.llm.invoke_llm`，Tutor 装配经 `services.llm.base_agent`。
+- 限流按 provider/model 路由管理，支持并发上限与可选 RPS；运行时状态通过 `/llm/runtime/limits` 查询和更新。
 - `AgentRole` 与 `llm_profiles.role` 只有 `tutor`、`curriculum`。
 - 所有提示词经 `infrastructure.llm.prompts.load_prompt("agent/prompts/<name>.md")` 加载。
 
@@ -60,5 +61,6 @@ uv run scripts/dev.py
 | `POST` | `/llm/models/refresh` | 刷新模型目录 |
 | `GET/POST/PUT/DELETE` | `/llm/roles/{role}/profiles...` | 管理 `tutor` / `curriculum` Profile |
 | `POST` | `/llm/invoke` | 使用指定 Agent role 执行调用 |
-| `GET` | `/llm/call-logs` | 返回提示词地图所需的调用时间流 |
+| `GET` | `/llm/call-logs` | 从 `llm_runs` 派生提示词地图所需的调用时间流 |
+| `GET/PUT` | `/llm/runtime/limits` | 查询或更新 provider/model 路由的限流配置与运行状态 |
 | `GET/PUT/POST` | `/user-profile/...` | 用户画像版本管理 |

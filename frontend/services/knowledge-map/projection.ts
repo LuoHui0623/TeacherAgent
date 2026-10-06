@@ -48,8 +48,22 @@ export interface PositionedProjection {
   height: number;
 }
 
+/**
+ * 美化阶段为章节创建的知识点挂接。
+ *
+ * 大纲不携带知识点 id：知识点实例由美化步骤从确认后的教材创建并挂接，
+ * 因此投影必须显式接收这些挂接，不从大纲节点推断。
+ */
+export interface ChapterKnowledgeAttachment {
+  /** 大纲节点 id。 */
+  outlineNodeId: string;
+  /** 该章节挂接的知识点 id。 */
+  knowledgePointIds: string[];
+}
+
 function flattenOutline(
   items: OutlineNodePayload[],
+  attachmentsByChapter: ReadonlyMap<string, readonly string[]>,
   depth = 0,
   parentId?: string,
 ): ProjectionChapter[] {
@@ -60,8 +74,13 @@ function flattenOutline(
     summary: item.summary,
     depth,
     parentId,
-    knowledgePointIds: [...(item.knowledgePointIds ?? [])],
-    children: flattenOutline(item.children ?? [], depth + 1, `chapter:${item.id}`),
+    knowledgePointIds: [...(attachmentsByChapter.get(item.id) ?? [])],
+    children: flattenOutline(
+      item.children ?? [],
+      attachmentsByChapter,
+      depth + 1,
+      `chapter:${item.id}`,
+    ),
   }));
 }
 
@@ -75,9 +94,18 @@ function findKnowledgePoint(graph: KnowledgeGraph | undefined, id: string): Know
 
 export function projectOutlineToKnowledgeMap(
   outline: OutlinePayload,
-  knowledgeGraph?: KnowledgeGraph,
+  {
+    attachments = [],
+    knowledgeGraph,
+  }: {
+    attachments?: readonly ChapterKnowledgeAttachment[];
+    knowledgeGraph?: KnowledgeGraph;
+  } = {},
 ): KnowledgeMapProjection {
-  const chapters = flattenOutline(outline.items);
+  const attachmentsByChapter = new Map(
+    attachments.map((attachment) => [attachment.outlineNodeId, attachment.knowledgePointIds]),
+  );
+  const chapters = flattenOutline(outline.items, attachmentsByChapter);
   const flatChapters = flattenChapters(chapters);
   const nodes: ProjectionNode[] = flatChapters.map((chapter) => ({
     id: chapter.id,
@@ -241,7 +269,6 @@ export function layoutProjection(
 /** 当前大纲快照：由 Outline 契约提供，供无后端连接时的工作区首屏展示。 */
 export const currentOutlineSnapshot: OutlinePayload = {
   id: 'outline-current',
-  briefId: 'brief-frontend-performance',
   title: '前端性能优化',
   coveredOutcomeIds: ['diagnose', 'plan', 'verify'],
   items: [
@@ -249,7 +276,6 @@ export const currentOutlineSnapshot: OutlinePayload = {
       id: 'performance-metrics',
       title: '性能指标与测量',
       summary: '建立性能问题的测量与诊断基线。',
-      knowledgePointIds: ['web-vitals', 'performance-timeline'],
       buildsOn: [],
       children: [],
     },
@@ -257,7 +283,6 @@ export const currentOutlineSnapshot: OutlinePayload = {
       id: 'rendering-performance',
       title: '渲染性能',
       summary: '理解浏览器渲染路径与常见优化策略。',
-      knowledgePointIds: ['browser-rendering', 'layout-thrashing'],
       buildsOn: ['performance-metrics'],
       children: [],
     },
@@ -265,9 +290,17 @@ export const currentOutlineSnapshot: OutlinePayload = {
       id: 'network-cache',
       title: '网络与缓存',
       summary: '掌握网络瀑布、缓存策略和资源交付优化。',
-      knowledgePointIds: ['network-performance', 'http-caching'],
       buildsOn: ['performance-metrics'],
       children: [],
     },
   ],
 };
+
+/**
+ * 当前快照的知识点挂接：代表美化步骤从确认后的教材创建的知识点。
+ */
+export const currentChapterKnowledgeAttachments: ChapterKnowledgeAttachment[] = [
+  { outlineNodeId: 'performance-metrics', knowledgePointIds: ['web-vitals', 'performance-timeline'] },
+  { outlineNodeId: 'rendering-performance', knowledgePointIds: ['browser-rendering', 'layout-thrashing'] },
+  { outlineNodeId: 'network-cache', knowledgePointIds: ['network-performance', 'http-caching'] },
+];

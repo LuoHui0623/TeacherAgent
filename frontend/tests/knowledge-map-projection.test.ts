@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  currentChapterKnowledgeAttachments,
   currentOutlineSnapshot,
   layoutProjection,
   neighborhood,
@@ -9,7 +10,9 @@ import {
 
 describe('outline knowledge projection', () => {
   it('projects outline chapters, knowledge points, source links, and prerequisite edges', () => {
-    const projection = projectOutlineToKnowledgeMap(currentOutlineSnapshot);
+    const projection = projectOutlineToKnowledgeMap(currentOutlineSnapshot, {
+      attachments: currentChapterKnowledgeAttachments,
+    });
 
     expect(projection.chapters).toHaveLength(3);
     expect(projection.nodes.filter((node) => node.kind === 'chapter')).toHaveLength(3);
@@ -24,7 +27,9 @@ describe('outline knowledge projection', () => {
   });
 
   it('keeps the displayed neighborhood bounded and deterministic', () => {
-    const projection = projectOutlineToKnowledgeMap(currentOutlineSnapshot);
+    const projection = projectOutlineToKnowledgeMap(currentOutlineSnapshot, {
+      attachments: currentChapterKnowledgeAttachments,
+    });
     const view = neighborhood(projection, 'knowledge:web-vitals', 1, 4);
     const layout = layoutProjection(projection, 'knowledge:web-vitals');
 

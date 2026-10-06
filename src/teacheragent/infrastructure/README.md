@@ -5,7 +5,6 @@
 | 子目录 | 负责 |
 |---|---|
 | `llm/` | LLM 调用基建：客户端、模型目录、Profile、settings 合并、提示词加载 |
-| `call_logger.py` | 装配使用的通用调用日志机制；由 LLM 调用入口特别调用 |
 | `store/` | 持久化基建：SQLite 连接池与迁移、仓储、表行契约、DDL；Neo4j 驱动池 |
 
 ## 为什么独立成层
@@ -27,6 +26,10 @@
 | 模块 | 职责 |
 |---|---|
 | `client.py` | 建客户端、抽取 usage、错误描述 |
+| `model.py` | 唯一 LangChain 模型外观；统一限流、重试与 `llm_runs` 记录 |
+| `limiter.py` | 按 provider/model 路由提供并发许可与可选 RPS 限流，并暴露运行统计 |
+| `runtime.py` | 共享运行时、任务调用上下文、模型缓存与路由限流控制 |
+| `recorder.py` | 创建和更新单次模型尝试的 `llm_runs` 记录 |
 | `invoke.py` | 读配置 → 建客户端 → 日志落库 → 调用 |
 | `catalog.py` | 模型目录（内存候选 + 刷新） |
 | `profiles.py` | 按角色的 Profile 管理 |

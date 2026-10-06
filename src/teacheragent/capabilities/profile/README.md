@@ -17,6 +17,38 @@
 - 不把结构化画像回写进 Markdown。
 - 不决定画像的消费方式，消费点在各消费能力域（如写大纲）。
 
+## 提示词设计
+
+### Json learnerProfile(结构化画像)
+
+`learnerProfile` 是从画像 Markdown 提取、注入大纲提示词的结构化事实，分为两组：
+
+- **`tech` 组**：`primaryTech`（需精通的主修技术）与 `techStack`（已知技术全量清单，每条带水平档位），都是条目数组。
+- **`background` 组**：`education` 与 `profession` 各为一句原文，`learned` 与 `goals`、`preferences` 为字符串数组。
+
+```json
+{
+  "version": 3,
+  "primaryTech": [{ "name": "Python", "level": "精通", "note": "后端与数据处理" }],
+  "techStack": [{ "name": "Python", "level": "精通" }, { "name": "React", "level": "熟练" }],
+  "education": "本科，非计算机专业，就读于某 211 院校。",
+  "profession": "数据分析师，junior。",
+  "learned": ["线性回归、决策树与模型评估", "requests + BeautifulSoup"],
+  "goals": ["半年内具备独立设计高并发后端服务的能力"],
+  "preferences": ["动手示例先行，再做概念归纳。"],
+  "extras": []
+}
+```
+
+约束：
+
+- 分区缺失写 `null`，不用空字符串或空数组占位；未知标题进入 `extras`，不丢弃。
+- 每个分区用与内容相称的最简类型：技术是条目数组（`name` / 可选 `level` / 可选 `note`），学业与职业是一个字符串，已学内容、目标与偏好是字符串数组。
+- 只提取原文事实，不替用户归类：背景保留为一句原文，不拆固定子字段。
+- 不推断水平，不自行诊断薄弱点，不把分区原文（`text`）再存一份。
+- 薄弱点与感兴趣不进结构化画像：前者随学习持续变化，后者与「学习目标」重复。
+
+
 ## 提示词
 
 - `agent/prompts/profile-maintain.md`：画像维护。

@@ -20,6 +20,8 @@ src/teacheragent/agent/prompts/<name>.md
 
 不再按 capability 或 workflow 目录分散存放，不创建角色 `settings.md`。
 
+每份提示词的小节结构遵循 [`agent/prompts/README.md`](../agent/prompts/README.md)：角色 / 输入 / 目标和要求 / 约束 / 输出契约（契约要求说明 + 结构化输出）。
+
 ## 加载
 
 ```python
@@ -29,7 +31,7 @@ prompt = load_prompt("agent/prompts/tutor.md")
 ```
 
 `load_prompt` 只接受严格的 `agent/prompts/<name>.md` 形式。`Prompt.ref` 仅用于当前
-进程内的资产定位，不写入 `llm_runs`；调用记录只记录实际输入、输出和调用元数据。
+进程内的资产定位，不写入 `llm_runs`；模型调用由统一的 `LlmModel` 记录实际输入、输出和调用元数据。
 
 ## 变更纪律
 

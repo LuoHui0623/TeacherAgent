@@ -13,7 +13,7 @@
 | `parentId` | `outlineStore` 的 stale 传播（`isChild`） | **存储形态** |
 | `children` | `flattenItems` 读取以拍平 | **输入形态**（入库后不用） |
 | `title` | 主笔生成正文（`mocks/agents.ts`） | 内容 |
-| `knowledgePointIds` | 传导到 `ContentDraft.knowledgePointIds` | 传导 |
+| `knowledgePointIds` | 曾传导到 `ContentDraft.knowledgePointIds` | **已移出大纲**（见 4.7） |
 | `dependsOnItemIds` | `outlineStore` 两处：领取准入 + stale 传播 | **唯一真正驱动控制流的字段** |
 | `order` | **无人读**（只在契约与 mock 里被写入） | 冗余 |
 | `prerequisites` | **无人读** | 冗余 |
@@ -41,6 +41,8 @@
 **结论**：这其实是**问题 2 的派生**。当知识点实体缺失时，`knowledgePointIds` 悬空，看起来才像「混装」。补上 `KnowledgePoint` 契约（`frontend/docs/knowledge-map.md` 第四节）后，`OutlineItem` 只是**持有对知识点的引用**，并不混装三种结构。
 
 **建议**：结构不动，**补被引用的实体**。挂载关系就表达为「章节持有知识点引用」。
+
+> **后续修订**：挂载已交给美化阶段——大纲不再持有知识点引用，改为显式传挂接（见 4.7）。
 
 ### 问题 2：知识点实体缺失
 
@@ -333,7 +335,7 @@ constraints: ['每周 6 小时', '以项目实践为主'],
 |---|---|---|
 | `id` / `title` | 保留 | 结构 / 内容（主笔的真实输入） |
 | `summary` | 保留 | 给人与模型看的展示文本；明确它不是控制字段 |
-| `knowledgePointIds` | 保留 | 挂载关系 |
+| `knowledgePointIds` | **移出大纲** | 大纲不携带知识点 id；知识点实例由美化步骤从确认后的教材创建并挂接（见 4.7） |
 | `dependsOnItemIds` | **改名 `buildsOn`** | 见问题 5 的分析与 4.3 |
 | `children` | 保留（**仅生成侧**） | 输入形态；入库即拍平为 `parentId` |
 | `parentId` | 保留（**仅存储侧**） | 权威存储形态；payload 里**不出现**（由嵌套决定） |
@@ -403,7 +405,6 @@ export interface OutlineNodePayload {
   id: string;
   title: string;
   summary?: string;
-  knowledgePointIds?: string[];
   /** 本节点内容**建立在这些节点之上**：它们必须先完成；它们一变，本节点要重写。 */
   buildsOn?: string[];
   children?: OutlineNodePayload[];
@@ -415,14 +416,17 @@ export interface StoredOutlineNode {
   parentId?: string;
   title: string;
   summary?: string;
-  knowledgePointIds?: string[];
   buildsOn?: string[];
 }
 
-/** 大纲 artifact（生成侧契约）。 */
+/**
+ * 大纲 artifact（生成侧契约）。
+ *
+ * 不引用 brief，也不携带知识点 id：大纲只描述章节结构与学习任务。
+ * 知识点实例由后续美化步骤从确认后的教材创建，并挂接到教材产物。
+ */
 export interface OutlinePayload {
   id: string;
-  briefId: string;
   title: string;
   /** 本大纲覆盖了 brief 的哪几条目标 —— 引用而非抄写。 */
   coveredOutcomeIds: string[];
@@ -438,7 +442,6 @@ export interface OutlineVersion {
   parentVersionId?: string;
   status: 'draft' | 'confirmed' | 'superseded';
   title: string;
-  briefId: string;
   coveredOutcomeIds: string[];
   items: StoredOutlineNode[];
   createdAt: string;
@@ -453,11 +456,23 @@ export interface OutlineVersion {
 | **删** | `learnerSummary`、`scope.depth`、`order`、`prerequisites`、`audience`、大纲级 `expectedOutcomes`、大纲级 `estimatedMinutes` |
 | **改名 / 改形** | `intent` → `approach`（枚举）；`scope.level` → `scope.targetLevel`（复用画像档位）；`scope.breadth` → `scope.inScope` + `scope.outOfScope`；`expectedOutcomes` → `{ id, statement }[]`；`dependsOnItemIds` → `buildsOn`；大纲级 `expectedOutcomes` → `coveredOutcomeIds`；`CourseBlueprint` → `Outline`；`OutlineItem` → `OutlineNode` |
 | **移出契约（待接入）** | `learningObjectives`、`assessmentCriteria`、`requiredArtifacts`、条目级 `estimatedMinutes`、`coreKnowledgePointIds` |
+| **移出大纲** | 大纲 `briefId`、节点 `knowledgePointIds`（见 4.7） |
 | **新增** | `coveredOutcomeIds`（引用而非副本）、`scope.outOfScope`（防膨胀）、`LearningOutcome.id` |
 
 ### 4.6 落地结果（已完成）
 
 草案已按 4.4 落成代码，未留待确认项。
+
+### 4.7 大纲不再携带 brief 引用与知识点 id
+
+大纲的输入是已确认的 brief，但**输出不回指它**：`briefId` 会在大纲上再绑一条业务依赖，而工作流的外层元数据已经记录了“这份大纲由哪次 brief 审批产出”。同理，大纲也不输出 `knowledgePointIds`：知识点实体由**美化步骤**从确认后的教材创建，大纲只用章节主题、学习任务、依赖和验收标准描述学习结构。
+
+连带影响：
+
+- 知识地图投影不再从大纲节点读知识点，改为显式接收美化阶段产生的**章节→知识点挂接**（`ChapterKnowledgeAttachment`）。
+- 章节课的 `ContentDraft.knowledgePointIds` 仍属于章节阶段自己的字段，不由大纲提供。
+
+模型草稿与 `OutlinePayload` 不是同一个对象：模型只输出章节结构（`title` / `summary` / `buildsOn` / `learningTasks` / `acceptanceCriteria` / `children`）与引用，**不输出大纲或节点的标识**。标识由规范化步骤在生成 `OutlinePayload` / `StoredOutlineNode` 时分配，`buildsOn` 里模型写的章节标题也在这一步解析成节点 id。
 
 | 层 | 文件 | 变化 |
 |---|---|---|
@@ -516,3 +531,4 @@ workflow 里把输出端口从 `blueprint` 改成 `outline` 后，**mock handler
 | `requiredArtifacts` | 流程校验（本章该产出什么） | 流程校验落地时 |
 | 节点 `estimatedMinutes` | 画像的学习偏好、体量校验（与 brief 预算对照） | 学习时长接入时 |
 | `coreKnowledgePointIds` | 知识图投影的入口 | 投影落地时（T13） |
+| 大纲节点 `knowledgePointIds` | 知识图投影的入口 —— 改由美化阶段产出挂接（见 4.7） | 美化阶段落地时 |

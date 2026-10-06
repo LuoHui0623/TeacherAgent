@@ -6,9 +6,11 @@ import { messages } from '../../constants';
 import type { OutlinePayload } from '../../services/content-pipeline/contracts';
 import type { KnowledgeGraph } from '../../services/knowledge-map/types';
 import {
+  currentChapterKnowledgeAttachments,
   currentOutlineSnapshot,
   layoutProjection,
   projectOutlineToKnowledgeMap,
+  type ChapterKnowledgeAttachment,
   type ProjectionChapter,
 } from '../../services/knowledge-map/projection';
 import './KnowledgeMapModule.css';
@@ -49,14 +51,16 @@ function ChapterTree({
 
 export function KnowledgeMapModule({
   outline = currentOutlineSnapshot,
+  attachments = currentChapterKnowledgeAttachments,
   knowledgeGraph,
 }: {
   outline?: OutlinePayload;
+  attachments?: readonly ChapterKnowledgeAttachment[];
   knowledgeGraph?: KnowledgeGraph;
 }) {
   const projection = useMemo(
-    () => projectOutlineToKnowledgeMap(outline, knowledgeGraph),
-    [outline, knowledgeGraph],
+    () => projectOutlineToKnowledgeMap(outline, { attachments, knowledgeGraph }),
+    [outline, attachments, knowledgeGraph],
   );
   const firstKnowledge = projection.nodes.find((node) => node.kind === 'knowledge');
   const [selectedId, setSelectedId] = useState(firstKnowledge?.id ?? projection.nodes[0]?.id ?? '');

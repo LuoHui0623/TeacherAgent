@@ -37,7 +37,6 @@ export interface OutlineVersion {
   sourceArtifactVersionId?: string;
   status: 'draft' | 'confirmed' | 'superseded';
   title: string;
-  briefId: string;
   /** 本大纲覆盖了 brief 的哪几条目标 —— 引用而非抄写。 */
   coveredOutcomeIds: string[];
   items: StoredOutlineNode[];
@@ -57,7 +56,7 @@ export interface CreateOutlineVersionInput {
 export interface UpdateOutlineNodeInput {
   outlineId: string;
   nodeId: string;
-  patch: Partial<Pick<OutlineNodePayload, 'title' | 'summary' | 'knowledgePointIds' | 'buildsOn'>>;
+  patch: Partial<Pick<OutlineNodePayload, 'title' | 'summary' | 'buildsOn'>>;
   createdBy: string;
   createdAt: string;
   versionId: string;
@@ -156,7 +155,6 @@ export class OutlineStore {
       sourceArtifactVersionId: input.sourceArtifactVersionId,
       status: 'draft',
       title: input.outline.title,
-      briefId: input.outline.briefId,
       coveredOutcomeIds: [...input.outline.coveredOutcomeIds],
       items: flattenNodes(input.outline.items),
       createdAt: input.createdAt,

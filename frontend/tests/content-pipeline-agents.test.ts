@@ -28,7 +28,6 @@ const learningBriefPayload: LearningBriefPayload = {
 
 const outlinePayload: OutlinePayload = {
   id: 'blueprint-test',
-  briefId: 'brief-test',
   title: '前端性能优化',
   coveredOutcomeIds: ['diagnose'],
   items: [
@@ -36,7 +35,6 @@ const outlinePayload: OutlinePayload = {
       id: 'outline-1',
       title: '性能指标与测量',
       summary: '指标基础',
-      knowledgePointIds: ['performance-metrics'],
       buildsOn: [],
       children: [],
     },

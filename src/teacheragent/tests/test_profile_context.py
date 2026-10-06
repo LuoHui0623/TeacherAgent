@@ -9,7 +9,6 @@ import pytest
 from teacheragent.capabilities.outline.messages import build_outline_messages
 from teacheragent.capabilities.profile import parse as parse_module
 from teacheragent.capabilities.profile.contracts import (
-    PROFILE_SECTION_KEYS,
     ProfileParseError,
     StructuredProfile,
 )
@@ -25,21 +24,20 @@ BASE = datetime(2026, 9, 19, 12, 0, 0, tzinfo=UTC)
 
 
 def _structured_profile() -> dict:
-    sections = {
-        key: {"present": False, "text": "", "items": []}
-        for key in PROFILE_SECTION_KEYS
-    }
-    sections["primaryTech"] = {
-        "present": True,
-        "text": "Python（进阶）",
-        "items": [{"name": "Python", "level": "进阶"}],
-    }
     return {
-        "version": 2,
-        "overview": {"present": False, "text": ""},
-        "sections": sections,
+        "version": 3,
+        "primaryTech": [
+            {"name": "Python", "level": "进阶", "note": "能独立设计后端服务"},
+        ],
+        "techStack": [
+            {"name": "Python", "level": "进阶", "note": "能独立设计后端服务"},
+        ],
+        "education": "本科，非计算机专业。",
+        "profession": "数据分析师，junior。",
+        "goals": ["掌握 Python 装饰器"],
+        "preferences": ["示例先行"],
+        "learned": ["机器学习：线性回归、决策树"],
         "extras": [],
-        "warnings": [],
     }
 
 
@@ -72,8 +70,9 @@ def test_parse_profile_markdown_uses_curriculum_role_and_returns_model(monkeypat
     assert "Python（进阶）" in seen["messages"][1]["content"]
     assert VERSION_ID in seen["messages"][1]["content"]
     assert CONTENT_HASH in seen["messages"][1]["content"]
-    assert profile.sections.primaryTech.items[0].name == "Python"
-    assert profile.sections.primaryTech.items[0].level == "进阶"
+    assert profile.primaryTech is not None
+    assert profile.primaryTech[0].name == "Python"
+    assert profile.primaryTech[0].level == "进阶"
 
 
 def test_parse_profile_markdown_rejects_invalid_json(monkeypatch):
@@ -91,9 +90,10 @@ def test_parse_profile_markdown_rejects_invalid_json(monkeypatch):
         )
 
 
-def test_parse_profile_markdown_rejects_missing_controlled_sections(monkeypatch):
+def test_parse_profile_markdown_allows_missing_partitions(monkeypatch):
     payload = _structured_profile()
-    del payload["sections"]["weaknesses"]
+    del payload["primaryTech"]
+    payload["goals"] = None
     monkeypatch.setattr(
         parse_module,
         "invoke_llm",
@@ -102,7 +102,74 @@ def test_parse_profile_markdown_rejects_missing_controlled_sections(monkeypatch)
         ),
     )
 
-    with pytest.raises(ProfileParseError, match="weaknesses"):
+    profile = parse_module.parse_profile_markdown(
+        "# 用户画像",
+        markdown_version_id=VERSION_ID,
+        content_hash=CONTENT_HASH,
+    )
+
+    assert profile.primaryTech is None
+    assert profile.goals is None
+    assert profile.techStack is not None
+    assert profile.education == "本科，非计算机专业。"
+
+
+def test_parse_profile_markdown_keeps_unknown_partition_in_extras(monkeypatch):
+    payload = _structured_profile()
+    payload["extras"] = [
+        {"title": None, "text": "# 用户画像"},
+        {"title": "工作习惯", "text": "早上学习效率更高。"},
+    ]
+    monkeypatch.setattr(
+        parse_module,
+        "invoke_llm",
+        lambda _role, _messages: SimpleNamespace(
+            content=json.dumps(payload, ensure_ascii=False)
+        ),
+    )
+
+    profile = parse_module.parse_profile_markdown(
+        "# 用户画像",
+        markdown_version_id=VERSION_ID,
+        content_hash=CONTENT_HASH,
+    )
+
+    assert profile.extras[0].title is None
+    assert profile.extras[1].title == "工作习惯"
+    assert profile.extras[1].text == "早上学习效率更高。"
+
+
+def test_parse_profile_markdown_rejects_wrong_partition_shape(monkeypatch):
+    payload = _structured_profile()
+    payload["education"] = [{"name": "本科"}]
+    monkeypatch.setattr(
+        parse_module,
+        "invoke_llm",
+        lambda _role, _messages: SimpleNamespace(
+            content=json.dumps(payload, ensure_ascii=False)
+        ),
+    )
+
+    with pytest.raises(ProfileParseError, match="契约"):
+        parse_module.parse_profile_markdown(
+            "# 用户画像",
+            markdown_version_id=VERSION_ID,
+            content_hash=CONTENT_HASH,
+        )
+
+
+def test_parse_profile_markdown_rejects_unknown_partition(monkeypatch):
+    payload = _structured_profile()
+    payload["weaknesses"] = [{"name": "线程模型混淆"}]
+    monkeypatch.setattr(
+        parse_module,
+        "invoke_llm",
+        lambda _role, _messages: SimpleNamespace(
+            content=json.dumps(payload, ensure_ascii=False)
+        ),
+    )
+
+    with pytest.raises(ProfileParseError, match="未知字段"):
         parse_module.parse_profile_markdown(
             "# 用户画像",
             markdown_version_id=VERSION_ID,
@@ -112,7 +179,7 @@ def test_parse_profile_markdown_rejects_missing_controlled_sections(monkeypatch)
 
 def test_parse_profile_markdown_rejects_unknown_fields(monkeypatch):
     payload = _structured_profile()
-    payload["sections"]["primaryTech"]["unexpected"] = True
+    payload["primaryTech"][0]["unexpected"] = True
     monkeypatch.setattr(
         parse_module,
         "invoke_llm",
@@ -152,7 +219,8 @@ def test_load_context_reads_current_version_and_binds_source(monkeypatch):
     assert captured["content_hash"] == row["content_hash"]
     assert context.markdown_version_id == row["id"]
     assert context.content_hash == row["content_hash"]
-    assert context.profile.sections.primaryTech.items[0].name == "Python"
+    assert context.profile.primaryTech is not None
+    assert context.profile.primaryTech[0].name == "Python"
 
 
 def test_load_context_stops_when_no_profile_exists():
@@ -186,17 +254,14 @@ def test_profile_parse_call_log_contains_markdown_version_anchor(monkeypatch):
     assert context.content_hash == row["content_hash"]
 
 
-def test_outline_messages_keep_profile_and_source_separate():
+def test_outline_messages_inject_brief_and_profile():
     messages = build_outline_messages(
         {"goal": "掌握 Python 装饰器"},
         StructuredProfile.model_validate(_structured_profile()),
-        markdown_version_id=VERSION_ID,
-        content_hash=CONTENT_HASH,
     )
 
-    assert messages[0]["role"] == "system"
-    assert "画像使用规则" in messages[0]["content"]
-    assert messages[1]["role"] == "user"
-    assert '"markdownVersionId": "admin-20260919120000"' in messages[1]["content"]
-    assert '"contentHash": "sha256:test"' in messages[1]["content"]
-    assert "掌握 Python 装饰器" in messages[1]["content"]
+    assert [message["role"] for message in messages] == ["system"]
+    assert "排序与取舍由已确认的 `brief` 与 `learnerProfile` 决定" in messages[0]["content"]
+    assert '"goal": "掌握 Python 装饰器"' in messages[0]["content"]
+    assert '"primaryTech": [' in messages[0]["content"]
+    assert "${{ " not in messages[0]["content"]

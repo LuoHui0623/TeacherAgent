@@ -4,12 +4,12 @@
 由 Pydantic 做确定性校验；来源版本与内容哈希属于运行上下文，不再塞进画像内容。
 """
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 LearningLevel = Literal["涉猎", "入门", "会用", "熟练", "进阶", "精通"]
-"""技术条目允许的水平档位。"""
+"""技术条目允许的水平档位；允许留空，不写数值评分。"""
 
 
 class ProfileParseError(RuntimeError):
@@ -17,65 +17,44 @@ class ProfileParseError(RuntimeError):
 
 
 class ProfileItem(BaseModel):
-    """分区内的结构化条目。"""
+    """画像条目；`level` 仅技术条目使用。"""
     model_config = ConfigDict(extra="forbid", strict=True)
 
     name: str = Field(min_length=1)
     level: LearningLevel | None = None
-    primary: bool | None = None
     note: str | None = None
 
 
-class ProfileSection(BaseModel):
-    """一个受控分区的原文与条目。"""
+class ExtraSection(BaseModel):
+    """未命中受控分区的原文块。"""
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    present: bool
-    text: str
-    items: list[ProfileItem]
-
-
-class ProfileTextBlock(BaseModel):
-    """无条目的文本块，例如 overview。"""
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    present: bool
-    text: str
-
-
-class ProfileWarning(BaseModel):
-    """给用户看的非阻塞解析告警。"""
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    code: str
-    detail: str
-
-
-class ProfileSections(BaseModel):
-    """固定的受控分区集合；缺失或新增分区都由 Pydantic 拒绝。"""
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    primaryTech: ProfileSection
-    techStack: ProfileSection
-    learned: ProfileSection
-    interests: ProfileSection
-    education: ProfileSection
-    profession: ProfileSection
-    goals: ProfileSection
-    weaknesses: ProfileSection
-    preferences: ProfileSection
+    title: str | None = None
+    text: str = ""
 
 
 class StructuredProfile(BaseModel):
-    """画像内容契约；不包含运行来源、版本文件或存储元数据。"""
+    """画像内容契约；分区缺失为 None。"""
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    version: Literal[2]
-    overview: ProfileTextBlock
-    sections: ProfileSections
-    extras: list[dict[str, Any]]
-    warnings: list[ProfileWarning]
+    version: Literal[3]
+    primaryTech: list[ProfileItem] | None = None
+    techStack: list[ProfileItem] | None = None
+    education: str | None = None
+    profession: str | None = None
+    goals: list[str] | None = None
+    preferences: list[str] | None = None
+    learned: list[str] | None = None
+    extras: list[ExtraSection] = Field(default_factory=list)
 
 
-PROFILE_SECTION_KEYS = tuple(ProfileSections.model_fields)
-"""受控分区键，供测试与调用方检查结构。"""
+PROFILE_SECTION_KEYS: tuple[str, ...] = (
+    "primaryTech",
+    "techStack",
+    "education",
+    "profession",
+    "goals",
+    "preferences",
+    "learned",
+)
+"""受控分区名，按「技术 → 用户背景」顺序，供测试与调用方检查。"""

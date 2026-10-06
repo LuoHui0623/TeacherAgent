@@ -241,14 +241,12 @@ export function createMockContentAgentRegistry() {
   registerAgent(registry, 'outline-architect', (context) => {
     const payload: OutlinePayload = {
       id: `${context.run.id}:blueprint`,
-      briefId: `${context.run.id}:brief`,
       title: '前端性能优化',
       coveredOutcomeIds: ['diagnose', 'plan', 'verify'],
       items: [1, 2, 3].map((index) => ({
         id: `${context.run.id}:outline-${index}`,
         title: ['性能指标与测量', '渲染性能', '网络与缓存'][index - 1],
         summary: `第 ${index} 个核心章节`,
-        knowledgePointIds: [`kp-${index}`],
         buildsOn: [],
         children: [],
       })),
@@ -284,7 +282,7 @@ export function createMockContentAgentRegistry() {
             chapterId: item.id,
             title: item.title,
             markdown: `## ${item.title}\n\n这是章节主笔生成的初始 Markdown 草稿。`,
-            knowledgePointIds: item.knowledgePointIds,
+            knowledgePointIds: [`kp-${index + 1}`],
             sourceRefs: [],
           } satisfies ContentDraftPayload),
           `${item.title} 草稿`,

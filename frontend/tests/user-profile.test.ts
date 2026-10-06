@@ -11,7 +11,7 @@ describe('用户画像编辑器护栏', () => {
   it('识别缺失的核心分区', () => {
     const markdown = '# 用户画像\n\n## 主修技术\n\nPython\n\n## 技术栈\n\n- Python（进阶）';
 
-    expect(findMissingCoreSections(markdown)).toEqual(['学习目标', '薄弱点']);
+    expect(findMissingCoreSections(markdown)).toEqual(['学习目标']);
   });
 
   it('核心分区齐全时不提示', () => {

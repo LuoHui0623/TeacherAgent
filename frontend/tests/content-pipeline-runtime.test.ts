@@ -206,7 +206,6 @@ function createRuntime() {
           contentPipelineArtifactTypes.outline,
         {
           id: 'blueprint-1',
-          briefId: 'brief-1',
           title: '前端性能',
           coveredOutcomeIds: ['outcome'],
           items: [
@@ -214,7 +213,6 @@ function createRuntime() {
               id: 'outline-1',
               title: '性能基础',
               summary: '基础',
-              knowledgePointIds: ['performance'],
               buildsOn: [],
               children: [],
             },

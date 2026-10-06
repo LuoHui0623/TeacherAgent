@@ -96,17 +96,19 @@ export interface OutlineNodePayload {
   title: string;
   /** 摘要 —— 给人与模型看的展示文本，不是控制字段。 */
   summary?: string;
-  /** 挂载：本节点涉及的知识点 id。 */
-  knowledgePointIds?: string[];
   /** 本节点内容建立在这些节点之上：它们必须先完成；它们一变，本节点要重写。 */
   buildsOn?: string[];
   children?: OutlineNodePayload[];
 }
 
-/** 教材大纲（生成侧契约）。 */
+/**
+ * 教材大纲（生成侧契约）。
+ *
+ * 大纲只描述章节结构与学习任务：不引用 brief，也不携带知识点 id。
+ * 知识点实例由后续美化步骤从确认后的教材创建并挂接。
+ */
 export interface OutlinePayload {
   id: string;
-  briefId: string;
   title: string;
   /** 本大纲覆盖了 brief 的哪几条目标 —— 引用而非抄写。 */
   coveredOutcomeIds: string[];
@@ -310,7 +312,7 @@ const validators: Record<
     const errors: string[] = [];
     const record = requireRecord(payload, errors);
     if (!record) return { valid: false, errors };
-    for (const key of ['id', 'briefId', 'title']) {
+    for (const key of ['id', 'title']) {
       requireString(record, key, errors);
     }
     requireStringArray(record, 'coveredOutcomeIds', errors);
