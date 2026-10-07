@@ -8,11 +8,12 @@
 |---|---|
 | `src/` | 应用入口：`main.tsx`、`App.tsx`、`index.css` |
 | `modules/` | UI 模块层：组件与私有 CSS 同目录；不存放领域 mock |
-| modules/learning-zone/ | 学习区、阅读器、RenderBlock UI、代码 fence 与 Tutor 抽屉 |
-| modules/content-pipeline/ | 教材生产线可视化运行台、流程画布与节点检查器 |
+| modules/learning-zone/ | 学习区、阅读器、RenderBlock UI、代码 fence 与 Tutor 抽屉（对话与发起） |
+| modules/content-pipeline/ | 教材生产线可视化运行台、流程画布与节点检查器（只读） |
 | `services/` | 业务服务层：数据获取、状态管理、解析、领域模型 |
 | services/textbook/markdown/ | Markdown 解析、runtime registry、RenderBlock 构建 |
-| services/content-pipeline/ | 工作流模型、Contract、Artifact Store 与运行时 |
+| services/content-pipeline/ | 图定义客户端、运行读模型、提示词地图、画布布局与产物 diff |
+| services/chat.ts | 对话消息的读写与一轮 Tutor 对话 |
 | `mocks/` | 前端 mock 与 fixture；生产 parser 和组件不得依赖 |
 | `shared/` | Shell、通用组件、设计令牌与布局样式 |
 | `constants/` | 通用常量与全中文界面文案 |
@@ -58,28 +59,38 @@ Section Markdown
 
 教材生产线通过工作流和结构化 Artifact 驱动多角色 Agent 协作，不把自由聊天记录作为节点之间的事实来源。
 
+**事实来源在后端**：图定义、运行、产物、提示词快照与对话都存在后端库里，前端是只读投影，不持有图定义副本，也不自己算节点状态与 run 状态。前端侧的形状如下：
+
 ```text
-WorkflowDefinition
-  -> WorkflowRun
-  -> NodeRun
-  -> ArtifactVersion
-  -> Approval / RunEvent
+GET /workflows/{id}                          -> 当前图定义（canvas 的唯一来源）
+GET /workflows/{id}/runs[/{run_id}]          -> pipeline 历史与一次运行（含该 run 冻结的图）
+GET /workflows/{id}/runs/{run_id}/nodes/{node_id}/prompt-map
+                                             -> 节点提示词地图（三态 + 六阶段）
+GET /prompts/{ref}[/versions|/diff]          -> 模板正文、版本序列与 diff
+POST /workflows/{id}/runs                    -> 由一条 proposal 消息发起运行
+POST .../pause | /resume | .../rerun | .../decide
+GET/POST /chat/messages · POST /chat/turns   -> Tutor 对话与发起提议
 ```
 
-- `services/content-pipeline/contracts.ts` 定义 `LearningBrief`、`CourseBlueprint`、`ContentDraft`、`ReviewReport` 等核心 Contract。
-- `services/content-pipeline/artifactStore.ts` 负责不可变版本、校验、确认和消费检查。`n- `services/content-pipeline/agents.ts` 定义 Agent 角色注册、IO Contract 声明、节点适配和遥测。`n- `services/content-pipeline/outlineStore.ts` 负责大纲版本、OutlineItem 工作状态和 stale 传播。`n- `services/content-pipeline/artifactDiff.ts` 与 `runAnalytics.ts` 提供版本对比、耗时、Token 和成本聚合。`n- `services/content-pipeline/workflowEditor.ts` 提供节点启停、配置编辑、拖拽位置、图校验与模板版本提交。`n- `mocks/content-pipeline/agents.ts` 提供完整角色链路的 mock Agent 实现。
-- `services/content-pipeline/runtime.ts` 负责顺序与并行调度、Fan-out / Fan-in、Human Gate、逐项/批量审批、重试、取消和局部重跑。
-- `mocks/content-pipeline/main-workflow.ts` 是教材生产主工作流定义。
-- 第一版页面只做固定流程可视化；拖拽编排后置。
+- `services/content-pipeline/workflowSource.ts` 取图定义；读取完成前与失败时 canvas 显示降级提示。
+- `services/content-pipeline/runs.ts` 是运行读模型：状态映射、时间线、产物行、指标这些视图派生都在这里（纯函数，测试直接跑），并封装暂停 / 继续 / 重跑 / 决断 / 发起五个写动作。
+- `services/content-pipeline/promptMap.ts` 是节点提示词地图的客户端：六阶段、变量绑定、模板漂移、产物引用，以及阶段文案与摘要。
+- `services/content-pipeline/canvasLayout.ts` 按图的依赖方向推导画布列位置（入口列 0，打回上游的回边跳过），因此「某次运行冻结的图」与「当前定义」不同时也能如实渲染。
+- `services/content-pipeline/contracts.ts` 与 `artifactDiff.ts` 仍在使用：前者提供 `LearningBrief` / `Outline` 等载荷类型，后者提供两版正文的统一 diff。
+- `services/chat.ts` 提供对话读写与一轮 Tutor 对话；学习区 Tutor 抽屉的「发起教材生产」写一条 proposal 消息，再由它创建运行并切到本模块。
+- `tests/fixtures/workflows.json` 是接口响应的快照，由后端 `test_workflow_api.py` 断言与注册表一致；重建命令：`uv run python scripts/export_workflow_fixtures.py`。
+- `mocks/content-pipeline/main-workflow.ts` 只按传入的图定义派生流程模板与版本记录，本身不含图数据。
+
+### 旧的内存运行引擎（待清理）
+
+`runtime.ts`、`artifactStore.ts`、`outlineStore.ts`、`runAnalytics.ts`、`agents.ts` 与 `mocks/content-pipeline/agents.ts` 是后端接管之前的演示引擎：应用已经不再引用它们，只剩它们自己的测试在引用（`tests/content-pipeline-{runtime,agents,insights,outline}.test.ts`）。保留还是删除待拍板；在拍板前不要把新功能接到这套引擎上。
+
 ## pipeline canvas
 
 - 中央工作流画布统一定义为 `pipeline canvas`。
 - Toolbar 提供指针模式和手模式；鼠标中键在任意模式下都可以平移画布。
-- 节点 card 仅在四条边的正中间提供连接点：左侧、上方为输入，右侧、下方为输出。
-- 指针模式从连接点拖拽创建连线，靠近其他 card 时自动吸附最近的兼容连接点。
-- 连线创建前校验输入输出 Artifact Contract，不兼容时拒绝。
-- 节点或连线拖拽时按住 Shift 使用直线路径。
-- 画布编辑通过 `WorkflowEditSession` 提交为新的 `WorkflowVersion`，不修改正在运行的版本。
+- 画布是**只读运行视图**：节点拖动、连线创建、模板编辑都已移除，节点位置由 `canvasLayout.ts` 推出。
+- 节点显示该次运行的真实状态（后端词表），未轮到的节点显示「等待」；选中节点在 inspector 内看提示词地图。
 
 ## Mock 与覆盖规则
 

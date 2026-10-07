@@ -32,7 +32,7 @@ PRD 原文要求的本来就不是生成：
 
 > 逐条分析与字段取舍建议见 **`frontend/docs/outline-contract.md`**（独立讨论稿）。本节只列问题清单。
 
-以 `frontend/services/content-pipeline/contracts.ts` 的 `CourseBlueprintPayload` / `OutlineItemPayload` 为例：
+以 `frontend/services/content-pipeline/contracts.ts` 的 `OutlinePayload` / `OutlineNodePayload` 为例（这份讨论稿写作时它们叫 `CourseBlueprintPayload` / `OutlineItemPayload`）：
 
 | # | 问题 | 说明 |
 |---|---|---|

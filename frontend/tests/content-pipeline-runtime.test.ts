@@ -455,7 +455,7 @@ describe('content pipeline workflow runtime', () => {
           inputs: [port('drafts', contentPipelineArtifactTypes.contentDraft, true)],
           outputs: [
             port('approved', contentPipelineArtifactTypes.contentDraft, true),
-            port('feedback', contentPipelineArtifactTypes.revisionFeedback),
+            port('feedback', contentPipelineArtifactTypes.gateReview),
           ],
           config: {},
           humanApproval: {

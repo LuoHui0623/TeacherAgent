@@ -9,13 +9,19 @@ from teacheragent.infrastructure.store.sqlite.tables.llm_runs import LlmRunRow
 
 
 def create_run(*, run: dict[str, Any]) -> None:
-    """以 running 状态创建一条真实请求记录。"""
+    """以 running 状态创建一条真实请求记录。
+
+    `run` 可以带 `origin`（`WorkflowCallOrigin`）：它描述这次调用属于图上的哪个节点实例，
+    没有就全写 NULL（Tutor 对话这类非 workflow 调用）。
+    """
     with connection() as conn:
         conn.execute(
             f"INSERT INTO {table.TABLE} ("
             "run_id, task_id, query_id, sequence, attempt, role, provider, model, temperature, "
-            "prompt_sources_json, input_messages_json, tools_json, started_at, status"
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "prompt_sources_json, input_messages_json, tools_json, started_at, status, "
+            "workflow_id, workflow_run_id, node_id, item_key, generation, prompt_ref, "
+            "prompt_content_hash, bindings_json"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 run["run_id"], run["task_id"], run["query_id"], run["sequence"],
                 run["attempt"], run["role"], run["provider"], run["model"],
@@ -23,6 +29,7 @@ def create_run(*, run: dict[str, Any]) -> None:
                 json.dumps(run["input_messages"], ensure_ascii=False),
                 json.dumps(run.get("tools") or [], ensure_ascii=False),
                 run["started_at"], "running",
+                *_origin_columns(run.get("origin")),
             ),
         )
 
@@ -41,6 +48,23 @@ def finish_run(*, run_id: str, values: dict[str, Any]) -> None:
                 values["status"], values.get("status_code"), values.get("error", ""), run_id,
             ),
         )
+
+
+def _origin_columns(origin: Any) -> tuple:
+    """把节点身份摊成八列；没有身份时全为 NULL。"""
+    if origin is None:
+        return (None,) * 8
+    bindings = dict(origin.bindings)
+    return (
+        origin.workflow_id,
+        origin.workflow_run_id,
+        origin.node_id,
+        origin.item_key,
+        origin.generation,
+        origin.prompt_ref,
+        origin.prompt_content_hash,
+        json.dumps(bindings, ensure_ascii=False) if bindings else None,
+    )
 
 
 def list_runs(*, limit: int = 100, run_id: str | None = None, task_id: str | None = None,
@@ -63,3 +87,31 @@ def list_runs(*, limit: int = 100, run_id: str | None = None, task_id: str | Non
         return [dict(row) for row in conn.execute(
             f"SELECT * FROM {table.TABLE}{where} ORDER BY started_at DESC LIMIT ?", params
         )]
+
+
+def list_node_calls(
+    *,
+    workflow_id: str,
+    run_id: str,
+    node_id: str | None = None,
+    limit: int = 500,
+) -> list[LlmRunRow]:
+    """某次运行（可再按节点）的调用，按发生时间与逻辑请求序号升序返回。
+
+    提示词地图按 `sequence` / `attempt` 复原调用序列，所以这里不按时间倒序。
+    """
+    clauses = ["workflow_id = ?", "workflow_run_id = ?"]
+    params: list[Any] = [workflow_id, run_id]
+    if node_id is not None:
+        clauses.append("node_id = ?")
+        params.append(node_id)
+    params.append(limit)
+    with connection() as conn:
+        return [
+            dict(row)
+            for row in conn.execute(
+                f"SELECT * FROM {table.TABLE} WHERE {' AND '.join(clauses)} "
+                "ORDER BY started_at, sequence, attempt LIMIT ?",
+                params,
+            )
+        ]

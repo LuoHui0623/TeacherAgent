@@ -8,11 +8,8 @@ import pytest
 
 from teacheragent.infrastructure.store.sqlite import migrations, tables
 
-CONTRACTS = (
-    tables.llm_settings,
-    tables.llm_profiles,
-    tables.user_profiles,
-)
+CONTRACTS = tuple(getattr(tables, name) for name in tables.__all__)
+"""登记在 `tables.__all__` 里的每个模块都必须与 DDL 一致。"""
 
 
 def _ddl_columns(table_name: str) -> tuple[str, ...]:

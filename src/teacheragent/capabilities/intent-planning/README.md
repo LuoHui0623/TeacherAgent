@@ -8,7 +8,7 @@
 
 | 输入 | 输出 | 契约 |
 |---|---|---|
-| `ContextSnapshot`（+ `RevisionFeedback`） | `LearningBrief` | `content-pipeline/learning-brief@1` |
+| `ContextSnapshot`（+ `GateReview`） | `LearningBrief` | `content-pipeline/learning-brief@1` |
 
 ## 边界
 

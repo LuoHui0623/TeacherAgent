@@ -7,11 +7,12 @@ from typing import Any, cast
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from teacheragent.api.routes import llm, llm_runs, user_profile
+from teacheragent.api.routes import chat, llm, llm_runs, prompts, user_profile, workflows
 from teacheragent.api.services import AppServices, SERVICES_ATTRIBUTE
 from teacheragent.infrastructure.store import migrate
 from teacheragent.infrastructure.llm.runtime import LlmRuntime, set_llm_runtime
 from teacheragent.services.llm import catalog, profiles
+from teacheragent.workflows.execution import WorkflowExecutor
 from teacheragent.config import env
 
 
@@ -26,12 +27,24 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
     refresh_models()
     profiles.ensure_default_profiles()
     runtime = LlmRuntime()
-    setattr(application.state, SERVICES_ATTRIBUTE, AppServices(llm_runtime=runtime))
+    executor = WorkflowExecutor()
+    setattr(
+        application.state,
+        SERVICES_ATTRIBUTE,
+        AppServices(llm_runtime=runtime, workflow_executor=executor),
+    )
     set_llm_runtime(runtime)
+    _resume_interrupted_runs(executor)
     try:
         yield
     finally:
         runtime.close()
+
+
+def _resume_interrupted_runs(executor: WorkflowExecutor) -> None:
+    """启动恢复扫描：非终态的行重新纳入调度，并接着推进受影响的 run（口径 E）。"""
+    for workflow_id, run_id in executor.recover():
+        executor.advance(workflow_id=workflow_id, run_id=run_id)
 
 
 app = FastAPI(title="TeacherAgent API", lifespan=lifespan)
@@ -49,9 +62,12 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type"],
 )
+app.include_router(chat.router)
 app.include_router(llm.router)
 app.include_router(llm_runs.router)
+app.include_router(prompts.router)
 app.include_router(user_profile.router)
+app.include_router(workflows.router)
 
 
 @app.get("/health")

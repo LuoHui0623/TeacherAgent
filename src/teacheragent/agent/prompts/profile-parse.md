@@ -142,3 +142,26 @@ Python（精通）
 - 不输出原文没有的人名、工具名、知识点或结论。
 - 不把「原文未提及」写成除空值以外的任何推断。
 - 不追加解释性文字。
+
+## 输入
+
+调用方在本节注入以下三项；不要假设存在未注入的字段。
+
+- `markdownVersionId`：这份画像 Markdown 的版本 ID，只用于调用溯源。
+- `contentHash`：这份画像 Markdown 的内容哈希，只用于调用溯源。
+- `markdown`：待解析的画像 Markdown 原文。
+
+注入内容按这个顺序读出：先是只用于调用溯源、不要进入输出 JSON 的运行元数据，再是待解析的画像 Markdown。
+
+```json
+{
+  "markdownVersionId": "${{ markdownVersionId }}",
+  "contentHash": "${{ contentHash }}"
+}
+```
+
+画像 Markdown：
+
+```markdown
+${{ markdown }}
+```

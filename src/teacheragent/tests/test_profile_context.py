@@ -21,6 +21,8 @@ from teacheragent.services import profile_context
 VERSION_ID = "admin-20260919120000"
 CONTENT_HASH = "sha256:test"
 BASE = datetime(2026, 9, 19, 12, 0, 0, tzinfo=UTC)
+OUTLINE_PROMPT_REF = "agent/prompts/outline-architect.md"
+"""大纲节点在图定义里声明的提示词资产路径。"""
 
 
 def _structured_profile() -> dict:
@@ -66,10 +68,11 @@ def test_parse_profile_markdown_uses_curriculum_role_and_returns_model(monkeypat
     )
 
     assert seen["role"] == AgentRole.CURRICULUM
-    assert "只做提取，不做推断" in seen["messages"][0]["content"]
-    assert "Python（进阶）" in seen["messages"][1]["content"]
-    assert VERSION_ID in seen["messages"][1]["content"]
-    assert CONTENT_HASH in seen["messages"][1]["content"]
+    system, user = seen["messages"].messages
+    assert "只做提取，不做推断" in system["content"]
+    assert "Python（进阶）" in user["content"]
+    assert VERSION_ID in user["content"]
+    assert CONTENT_HASH in user["content"]
     assert profile.primaryTech is not None
     assert profile.primaryTech[0].name == "Python"
     assert profile.primaryTech[0].level == "进阶"
@@ -258,10 +261,15 @@ def test_outline_messages_inject_brief_and_profile():
     messages = build_outline_messages(
         {"goal": "掌握 Python 装饰器"},
         StructuredProfile.model_validate(_structured_profile()),
+        prompt_ref=OUTLINE_PROMPT_REF,
     )
 
-    assert [message["role"] for message in messages] == ["system"]
-    assert "排序与取舍由已确认的 `brief` 与 `learnerProfile` 决定" in messages[0]["content"]
-    assert '"goal": "掌握 Python 装饰器"' in messages[0]["content"]
-    assert '"primaryTech": [' in messages[0]["content"]
-    assert "${{ " not in messages[0]["content"]
+    assert [message["role"] for message in messages.messages] == ["system", "user"]
+    system = messages.messages[0]["content"]
+    user = messages.messages[1]["content"]
+    assert "排序与取舍由已确认的 `brief` 与 `learnerProfile` 决定" in system
+    assert '"goal": "掌握 Python 装饰器"' in user
+    assert '"primaryTech": [' in user
+    assert "${{ " not in system
+    assert "${{ " not in user
+    assert {source.ref for source in messages.sources} == {OUTLINE_PROMPT_REF}

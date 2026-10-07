@@ -1,4 +1,4 @@
-# 架构
+﻿# 架构
 
 > **性质**：项目结构权威。确定前后端分层、目录树与依赖规则
 
@@ -54,7 +54,7 @@ frontend/
 ├── modules/                # UI 模块层：组件与私有 CSS 同目录；`mocks/` 存前端样例数据
 ├── services/               # 业务服务层：与后端交互、状态管理、业务逻辑（与 UI 无关）
 │   ├── runtime/            # 运行时基础设施：API client、WS 连接管理（后端接口封装并入此处）
-│   └── <domain>/           # 按领域：knowledge-map / tutor / notes / profile
+│   └── <domain>/           # 按领域：knowledge-map / content-pipeline / textbook / tutor / notes / profile；`chat.ts` 等扁平模块直接放在 services/ 下
 ├── shared/                 # Shell 与通用组件
 │   ├── ui/                 # Button / Field / Modal / Drawer / Toast primitives
 │   └── styles/             # tokens / system / shell / cover themes
@@ -94,13 +94,14 @@ frontend/
 ```text
 src/teacheragent/
 ├── api/              # FastAPI 路由层
-├── agent/            # Tutor 工具调用 Agent、Curriculum LangGraph 与统一提示词资产
-├── services/         # 业务编排入口：画像、教材、知识地图等领域服务
-├── workflows/        # 具体流程边界与说明，不提供通用 Agent runtime
+├── agent/            # Tutor 工具调用 Agent 与统一提示词资产
+├── services/         # 业务编排入口：画像、教材、知识地图、对话（chat）等领域服务
+├── workflows/        # 工作流编排层：图定义、node_id 注册与图快照冻结；execution/ 是写路径（就绪判定、单节点执行、发起、控制），runs/ 是读路径（历史与提示词地图）。不提供通用 Agent runtime
 ├── capabilities/     # 可复用输入 → 输出能力域，不等同于 Agent role
 ├── infrastructure/   # LLM 调用、通用调用日志、模型目录、Profile 与 SQLite / Neo4j 持久化
 ├── config/           # 配置：LLM settings（固化配置、环境变量、表覆盖值）、应用配置
-├── constants/        # 通用常量与枚举：教材生命周期状态、Agent 角色名等；不提供提示词
+├── constants/        # 通用常量与枚举：教材生命周期状态、Agent 角色名、对话词表；不提供提示词
+├── docs/             # 领域规范：Agent 模型、提示词资产、对话与发起面、用户画像
 ├── tests/            # 测试
 └── __init__.py
 ```
@@ -110,19 +111,31 @@ src/teacheragent/
 | 组件 | 选型 | 职责 |
 |---|---|---|
 | 语言与包管理 | Python 3.13 + uv（src 布局，uv_build） | 运行时与依赖 |
-| 接口层 | FastAPI | HTTP/WS 接口与 Agent 调用入口 |
+| 接口层 | FastAPI | HTTP 接口与 Agent 调用入口 |
 | LLM 客户端与设置 | LangChain | 模型调用、工具注册与提示词加载 |
-| 工作流编排 | LangGraph | Tutor 自主工具图与 Curriculum 固定课程图 |
+| 工作流编排 | 自建执行器（`workflows/execution/`） | 固定路线的图定义与推进：就绪判定是纯函数，库里的行是执行器的持久化；不依赖 LangGraph 的运行时状态（LangGraph 只用于 Tutor 的自主工具图） |
 | 图数据库 | Neo4j | 知识地图：知识点节点、先修/包含/关联边、笔记双链注入 |
-| 关系数据库 | SQLite | 教材资产、调用全量日志、用户画像、学习行为记录 |
+| 关系数据库 | SQLite | 教材资产、运行与产物（`node_runs` / `node_artifacts` / `workflow_snapshots`）、提示词快照、对话消息、调用全量日志（`llm_runs`）、用户画像；`user_interaction`（原 `behavior_logs`）暂无写入方 |
 
 ### 依赖规则
 
 - 分层单向依赖：`api → services / agent → workflows / capabilities → infrastructure`。
 - `infrastructure` 是基建层：可以依赖 `config / constants / shared`，**不得依赖** `capabilities / workflows / services / api`（由 `tests/test_layering.py::test_infrastructure_does_not_depend_on_domain` 强制）。
 - `shared` 是**纯工具层**：无状态、无持久化依赖，不得依赖 `infrastructure` 及以上任何层（由 `tests/test_layering.py::test_shared_layer_is_pure_utilities` 强制）。
-- `capabilities` 是可复用的「输入 → 输出」单元；实际 Agent 装配以 `agent/tutor.py` 与 `agent/curriculum.py` 为准，不增加固定 capabilities 声明。
+- `workflows` 不得依赖 `api` 或 `services`（由 `test_layering.py::test_workflow_layer_does_not_depend_on_outer_layers` 强制）；它可以直读仓储，所以发起面能在这一层认一条 proposal 消息。
+- `capabilities` 只能经仓储接口访问存储，不得直接碰 `sqlite3`（由 `test_layering.py::test_capabilities_use_repository_interface_only` 强制）。
+- `capabilities` 是可复用的「输入 → 输出」单元；`tutor` 的装配以 `agent/tutor.py` 为准，教材生产线以 `workflows/` 的图定义为输入，不增加固定 capabilities 声明。
 - 所有提示词统一在 `agent/prompts/`，由 `infrastructure.llm.prompts.load_prompt` 加载；不拆角色 `settings.md`。
 - Agent role 只有 `tutor` 与 `curriculum`；知识地图是 module / capability，不是独立 role。
 - SQL / 图数据库驱动只允许出现在 `infrastructure/store/` 内（由 `tests/test_layering.py::test_store_is_only_sql_owner` 强制）。
-- 调用记录由 `infrastructure/llm/model.py` 的唯一模型外观统一写入 `llm_runs`；它不单独构成能力域。
+- 调用记录由 `infrastructure/llm/model.py` 的唯一 `LlmModel` 外观统一写入 `llm_runs`；它不单独构成能力域。
+- `infrastructure/llm/limiter.py` 按 provider/model 路由管理并发许可与可选 RPS 限流；`GET/PUT /llm/runtime/limits` 提供运行时监控与控制。
+
+## 业务边界
+
+### 提示词装配
+
+提示词是文件资产（`agent/prompts/<name>.md`），变量用 `${{ 名称 }}` 声明，由 `infrastructure.llm.prompts.load_prompt` 装载、`render_prompt` 渲染：没有变量的模板渲染成一条消息，有变量的模板把静态前缀渲染成 `system`、注入载荷渲染成 `user`。绑定缺失在最早可解析点失败；加载时按 `(ref, content_hash)` 冻结进 `prompt_snapshots`。具体写法见 `src/teacheragent/docs/prompts.md` 与 `agent/prompts/README.md`。
+
+装配不生成大纲业务对象：大纲输出必须由模型生成并由后续契约校验器验证。
+

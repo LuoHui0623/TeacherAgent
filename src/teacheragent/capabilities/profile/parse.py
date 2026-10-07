@@ -4,7 +4,6 @@
 内容哈希作为运行元数据传入调用日志，但不进入结构化画像。
 """
 
-import json
 from typing import Any
 
 from pydantic import ValidationError
@@ -16,7 +15,7 @@ from teacheragent.capabilities.profile.contracts import (
 from teacheragent.constants import AgentRole
 from teacheragent.infrastructure.llm.client import describe_error
 from teacheragent.infrastructure.llm.invoke import invoke_llm
-from teacheragent.infrastructure.llm.prompts import load_prompt
+from teacheragent.infrastructure.llm.prompts import load_prompt, render_prompt
 
 PARSE_PROMPT_REF = "agent/prompts/profile-parse.md"
 """画像解析提示词资产路径。"""
@@ -33,18 +32,14 @@ def parse_profile_markdown(
     版本 ID 与内容哈希只用于运行溯源，会进入模型输入与调用日志，不进入结果契约。
     失败时抛出 `ProfileParseError`，调用方必须中断教材流程。
     """
-    prompt = load_prompt(PARSE_PROMPT_REF)
-    messages = [
-        {"role": "system", "content": prompt.content},
+    messages = render_prompt(
+        load_prompt(PARSE_PROMPT_REF),
         {
-            "role": "user",
-            "content": _build_user_content(
-                markdown,
-                markdown_version_id=markdown_version_id,
-                content_hash=content_hash,
-            ),
+            "markdownVersionId": markdown_version_id,
+            "contentHash": content_hash,
+            "markdown": markdown,
         },
-    ]
+    )
 
     try:
         response = invoke_llm(AgentRole.CURRICULUM, messages)
@@ -68,27 +63,6 @@ def parse_profile_response(content: str) -> StructuredProfile:
         return StructuredProfile.model_validate_json(text)
     except ValidationError as exc:
         raise ProfileParseError(_format_validation_error(exc)) from exc
-
-
-def _build_user_content(
-    markdown: str,
-    *,
-    markdown_version_id: str,
-    content_hash: str,
-) -> str:
-    trace = {
-        "markdownVersionId": markdown_version_id,
-        "contentHash": content_hash,
-    }
-    return (
-        "请按 system 中的契约解析下面这份画像 Markdown。\n\n"
-        "运行溯源元数据（只用于调用日志，不要进入输出 JSON）：\n"
-        f"{json.dumps(trace, ensure_ascii=False, indent=2)}\n\n"
-        "画像 Markdown：\n"
-        "```markdown\n"
-        f"{markdown}\n"
-        "```"
-    )
 
 
 def _strip_code_fence(content: str) -> str:

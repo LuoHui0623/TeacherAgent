@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -8,7 +8,21 @@ import {
   faArrowUp,
   faChalkboardUser,
   faUserCircle,
+  faWandMagicSparkles,
 } from '@fortawesome/free-solid-svg-icons';
+
+import {
+  chatRoleLabels,
+  chatTypeLabels,
+  fetchChatMessages,
+  postChatMessage,
+  sendTutorTurn,
+  type ChatMessage,
+} from '../../services/chat';
+import { createWorkflowRun } from '../../services/content-pipeline/runs';
+import { CONTENT_PIPELINE_WORKFLOW_ID } from '../../services/content-pipeline/workflowSource';
+import { useWorkbenchStore } from '../../services/workbenchStore';
+import { toast } from '../../shared/ui';
 
 interface TutorContext {
   sectionTitle?: string;
@@ -29,14 +43,6 @@ interface TutorDrawerProps {
   onDraftChange: (value: string) => void;
 }
 
-interface ChatMessage {
-  id: number;
-  role: 'tutor' | 'user';
-  content: string;
-}
-
-let messageId = 1;
-
 export function TutorDrawer({
   open,
   activePanel,
@@ -48,13 +54,26 @@ export function TutorDrawer({
   onWidthChange,
   onDraftChange,
 }: TutorDrawerProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: messageId++,
-      role: 'tutor',
-      content: '我会结合当前教材章节和选中内容，帮你解释概念、检查理解或分析代码。',
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [historyState, setHistoryState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [historyError, setHistoryError] = useState('');
+  const [sending, setSending] = useState(false);
+  const [startedRuns, setStartedRuns] = useState<Record<string, string>>({});
+
+  const reloadHistory = useCallback(async (): Promise<void> => {
+    try {
+      setMessages(await fetchChatMessages());
+      setHistoryState('ready');
+      setHistoryError('');
+    } catch (error) {
+      setHistoryState('error');
+      setHistoryError(error instanceof Error ? error.message : '后端接口不可用。');
+    }
+  }, []);
+
+  useEffect(() => {
+    void reloadHistory();
+  }, [reloadHistory]);
 
   function startResize(event: ReactPointerEvent<HTMLDivElement>) {
     event.preventDefault();
@@ -71,19 +90,51 @@ export function TutorDrawer({
     window.addEventListener('pointerup', handleUp);
   }
 
-  function send() {
+  async function send() {
     const content = draft.trim();
-    if (!content) return;
-    setMessages((current) => [
-      ...current,
-      { id: messageId++, role: 'user', content },
-      {
-        id: messageId++,
-        role: 'tutor',
-        content: 'Tutor 流式接口尚未接入，当前先保留前端交互和上下文结构。',
-      },
-    ]);
-    onDraftChange('');
+    if (!content || sending) return;
+    setSending(true);
+    try {
+      await sendTutorTurn(content);
+      onDraftChange('');
+    } catch (error) {
+      toast('Tutor 没答上来', {
+        description: error instanceof Error ? error.message : '后端接口不可用。',
+        variant: 'error',
+      });
+    } finally {
+      setSending(false);
+      await reloadHistory();
+    }
+  }
+
+  /** 发起一次教材生产：先写下提议这条消息，再由它创建运行。 */
+  async function propose() {
+    const content = draft.trim();
+    if (!content || sending) return;
+    setSending(true);
+    try {
+      const proposal = await postChatMessage({
+        role: 'user',
+        type: 'proposal',
+        content,
+      });
+      const started = await createWorkflowRun(CONTENT_PIPELINE_WORKFLOW_ID, proposal.messageId);
+      setStartedRuns((current) => ({ ...current, [proposal.messageId]: started.runId }));
+      onDraftChange('');
+      toast('已发起教材生产', {
+        description: `运行 ${started.runId} 已创建，去教材生产线看进度。`,
+      });
+      useWorkbenchStore.getState().setActive('content-pipeline');
+    } catch (error) {
+      toast('发起失败', {
+        description: error instanceof Error ? error.message : '后端接口不可用。',
+        variant: 'error',
+      });
+    } finally {
+      setSending(false);
+      await reloadHistory();
+    }
   }
 
   return (
@@ -153,17 +204,42 @@ export function TutorDrawer({
           <div className="tutor-drawer__body">
             <div className="tutor-drawer__messages">
               {messages.map((message) => (
-                <div key={message.id} className={`tutor-message is-${message.role}`}>
-                  <span>
-                    {message.role === 'tutor' ? (
+                <div
+                  key={message.messageId}
+                  className={`tutor-message is-${message.role} ${message.type === 'proposal' ? 'is-proposal' : ''}`}
+                >
+                  <span className="tutor-message__avatar">
+                    {message.role === 'assistant' ? (
                       <FontAwesomeIcon icon={faChalkboardUser} style={{ fontSize: 14 }} />
                     ) : (
                       <FontAwesomeIcon icon={faUserCircle} style={{ fontSize: 14 }} />
                     )}
                   </span>
-                  <p>{message.content}</p>
+                  <div className="tutor-message__body">
+                    <span className="tutor-message__meta">
+                      {chatRoleLabels[message.role]}
+                      {message.type === 'proposal' && ` · ${chatTypeLabels[message.type]}`}
+                    </span>
+                    <p>{message.content}</p>
+                    {startedRuns[message.messageId] && (
+                      <small className="tutor-message__run">
+                        已发起运行 {startedRuns[message.messageId]}
+                      </small>
+                    )}
+                  </div>
                 </div>
               ))}
+              {historyState === 'loading' && messages.length === 0 && (
+                <p className="tutor-drawer__empty">正在读取对话…</p>
+              )}
+              {historyState === 'error' && (
+                <p className="tutor-drawer__empty">{historyError}</p>
+              )}
+              {historyState === 'ready' && messages.length === 0 && (
+                <p className="tutor-drawer__empty">
+                  还没有对话。问一个问题，或者直接把你的需求发出去 —— 提议会创建一次教材生产。
+                </p>
+              )}
             </div>
 
             <div className="tutor-drawer__composer">
@@ -175,7 +251,7 @@ export function TutorDrawer({
                 onKeyDown={(event) => {
                   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
                     event.preventDefault();
-                    send();
+                    void send();
                   }
                 }}
                 placeholder="向 Tutor 提问…"
@@ -184,12 +260,23 @@ export function TutorDrawer({
               <div className="tutor-drawer__composer-actions">
                 <button
                   type="button"
+                  id="learning-tutor-propose"
+                  className="button button--secondary tutor-drawer__propose"
+                  disabled={!draft.trim() || sending}
+                  aria-label="发起教材生产"
+                  title="把这句需求作为教学提议，发起一次教材生产"
+                  onClick={() => void propose()}
+                >
+                  <FontAwesomeIcon icon={faWandMagicSparkles} style={{ fontSize: 15 }} />
+                </button>
+                <button
+                  type="button"
                   id="learning-tutor-send"
                   className="button button--primary tutor-drawer__send"
-                  disabled={!draft.trim()}
+                  disabled={!draft.trim() || sending}
                   aria-label="发送问题"
                   title="发送问题"
-                  onClick={send}
+                  onClick={() => void send()}
                 >
                   <FontAwesomeIcon icon={faArrowUp} style={{ fontSize: 16 }} />
                 </button>

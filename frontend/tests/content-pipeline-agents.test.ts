@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { createMockContentAgentRegistry, createMockContentPipelineRuntime } from '../mocks/content-pipeline/agents';
-import { mainWorkflowVersion } from '../mocks/content-pipeline/main-workflow';
+import { buildWorkflowVersion } from '../mocks/content-pipeline/main-workflow';
+import { mainWorkflowDefinition } from './fixtures/workflow-fixture';
 import {
   contentPipelineArtifactTypes,
   type OutlinePayload,
@@ -10,6 +11,8 @@ import {
 } from '../services/content-pipeline/contracts';
 import type { NodeArtifactOutput } from '../services/content-pipeline/runtime';
 import type { JsonValue } from '../services/content-pipeline/types';
+
+const mainWorkflowVersion = buildWorkflowVersion(mainWorkflowDefinition);
 
 const learningBriefPayload: LearningBriefPayload = {
   id: 'brief-test',
@@ -68,7 +71,7 @@ describe('content pipeline role agents', () => {
       'context-profiler',
       'intent-planner',
       'outline-architect',
-      'section-writer',
+      'chapter-writer',
       'reviewer',
       'reviser',
       'beautifier',
@@ -80,7 +83,7 @@ describe('content pipeline role agents', () => {
   });
 
   it('runs the complete main workflow through mock agents and human gates', async () => {
-    const runtime = createMockContentPipelineRuntime();
+    const runtime = createMockContentPipelineRuntime(mainWorkflowDefinition);
     runtime.createRun({
       runId: 'run-agent-flow',
       workflowVersionId: mainWorkflowVersion.id,

@@ -22,10 +22,8 @@ import {
   type NodeHandler,
 } from '../../services/content-pipeline/runtime';
 import type { JsonValue } from '../../services/content-pipeline/types';
-import {
-  mainWorkflowDefinition,
-  mainWorkflowVersion,
-} from './main-workflow';
+import type { WorkflowDefinition } from '../../services/content-pipeline/types';
+import { buildWorkflowVersion } from './main-workflow';
 
 function asJson(value: unknown): JsonValue {
   return value as JsonValue;
@@ -82,7 +80,7 @@ const agentDefinitions: ContentAgentDefinition[] = [
     defaultModel: 'mock-planner-v1',
     inputArtifactTypes: [
       contentPipelineArtifactTypes.contextSnapshot,
-      contentPipelineArtifactTypes.revisionFeedback,
+      contentPipelineArtifactTypes.gateReview,
     ],
     outputArtifactTypes: [contentPipelineArtifactTypes.learningBrief],
   },
@@ -94,15 +92,15 @@ const agentDefinitions: ContentAgentDefinition[] = [
     defaultModel: 'mock-outline-v1',
     inputArtifactTypes: [
       contentPipelineArtifactTypes.learningBrief,
-      contentPipelineArtifactTypes.revisionFeedback,
+      contentPipelineArtifactTypes.gateReview,
     ],
     outputArtifactTypes: [contentPipelineArtifactTypes.outline],
   },
   {
-    id: 'section-writer',
-    label: '章节主笔 Agent',
-    description: '按 OutlineItem 并行生成 Markdown 内容草稿。',
-    promptRef: 'content-pipeline/section-writer',
+    id: 'chapter-writer',
+    label: '章节主笔',
+    description: '一位章节主笔负责一整个章节的正文编写，多章并行。',
+    promptRef: 'content-pipeline/chapter-writer',
     defaultModel: 'mock-writer-v1',
     inputArtifactTypes: [contentPipelineArtifactTypes.outline],
     outputArtifactTypes: [contentPipelineArtifactTypes.contentDraft],
@@ -125,7 +123,7 @@ const agentDefinitions: ContentAgentDefinition[] = [
     inputArtifactTypes: [
       contentPipelineArtifactTypes.contentDraft,
       contentPipelineArtifactTypes.reviewReport,
-      contentPipelineArtifactTypes.revisionFeedback,
+      contentPipelineArtifactTypes.gateReview,
     ],
     outputArtifactTypes: [contentPipelineArtifactTypes.contentDraft],
   },
@@ -159,8 +157,8 @@ const agentDefinitions: ContentAgentDefinition[] = [
       contentPipelineArtifactTypes.publicationManifest,
     ],
     outputArtifactTypes: [
+      contentPipelineArtifactTypes.gateReview,
       contentPipelineArtifactTypes.publicationManifest,
-      contentPipelineArtifactTypes.validationReport,
     ],
   },
 ];
@@ -265,7 +263,7 @@ export function createMockContentAgentRegistry() {
     };
   });
 
-  registerAgent(registry, 'section-writer', (context) => {
+  registerAgent(registry, 'chapter-writer', (context) => {
     const blueprint = context.inputs.outline?.[0]?.payload as unknown as
       | OutlinePayload
       | undefined;
@@ -472,7 +470,7 @@ const workflowAgentMapping: Record<string, ContentAgentRole> = {
   'context-snapshot': 'context-profiler',
   'intent-planner': 'intent-planner',
   'outline-architect': 'outline-architect',
-  'chapter-writers': 'section-writer',
+  'chapter-writers': 'chapter-writer',
   reviewer: 'reviewer',
   reviser: 'reviser',
   beautifier: 'beautifier',
@@ -481,9 +479,9 @@ const workflowAgentMapping: Record<string, ContentAgentRole> = {
   publisher: 'quality-publisher',
 };
 
-export function registerMockContentAgents(runtime: WorkflowRuntime) {
+export function registerMockContentAgents(runtime: WorkflowRuntime, definition: WorkflowDefinition) {
   const registry = createMockContentAgentRegistry();
-  runtime.registerNodeHandler(mainWorkflowDefinition.id, 'tutor-trigger', (context) => ({
+  runtime.registerNodeHandler(definition.id, 'tutor-trigger', (context) => ({
     outputs: [
       artifactOutput(
         context,
@@ -505,7 +503,7 @@ export function registerMockContentAgents(runtime: WorkflowRuntime) {
   }));
 
   runtime.registerNodeHandler(
-    mainWorkflowDefinition.id,
+    definition.id,
     'outline-contract-gate',
     (context) => {
       const blueprint = context.inputs.outline?.[0];
@@ -526,16 +524,16 @@ export function registerMockContentAgents(runtime: WorkflowRuntime) {
   for (const [nodeId, role] of Object.entries(workflowAgentMapping)) {
     const handler = registry.getHandler(role);
     if (!handler) throw new Error(`Mock Agent handler 缺失：${role}`);
-    runtime.registerNodeHandler(mainWorkflowDefinition.id, nodeId, handler);
+    runtime.registerNodeHandler(definition.id, nodeId, handler);
   }
 
   return registry;
 }
 
-export function createMockContentPipelineRuntime() {
+export function createMockContentPipelineRuntime(definition: WorkflowDefinition) {
   const runtime = new WorkflowRuntime({
-    workflowVersions: [mainWorkflowVersion],
+    workflowVersions: [buildWorkflowVersion(definition)],
   });
-  registerMockContentAgents(runtime);
+  registerMockContentAgents(runtime, definition);
   return runtime;
 }

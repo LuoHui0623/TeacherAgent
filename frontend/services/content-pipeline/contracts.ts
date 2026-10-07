@@ -7,9 +7,7 @@ export const contentPipelineArtifactTypes = {
   outline: 'Outline',
   contentDraft: 'ContentDraft',
   reviewReport: 'ReviewReport',
-  chapterDecision: 'ChapterApprovalDecision',
-  revisionFeedback: 'RevisionFeedback',
-  validationReport: 'ValidationReport',
+  gateReview: 'GateReview',
   beautifiedContent: 'BeautifiedContent',
   assessmentSet: 'AssessmentSet',
   publicationManifest: 'PublicationManifest',
@@ -146,12 +144,16 @@ export interface ReviewReportPayload {
   issues: ReviewIssuePayload[];
 }
 
-export interface RevisionFeedbackPayload {
+/**
+ * 门禁评估：人工门禁与契约门都只产出这一种产物。通过与否在 `decision` 上，修订意见在
+ * `comments` 上；被审内容用 `contentHash` 指向正文行，不复制正文，下游拿到评估后按内容身份取内容。
+ */
+export interface GateReviewPayload {
   scopeType: 'workflow' | 'outline' | 'chapter' | 'publish';
-  scopeId: string;
-  decision: 'rejected' | 'changes-requested';
+  reviewer: 'ai' | 'user';
+  decision: 'approved' | 'changes-requested';
   comments: string;
-  targetArtifactVersionId: string;
+  contentHash: string;
 }
 
 export interface BeautifiedContentPayload {
@@ -181,14 +183,6 @@ export interface AssessmentSetPayload {
   }>;
 }
 
-export interface ValidationReportPayload {
-  id: string;
-  passed: boolean;
-  checkedArtifactVersionIds: string[];
-  errors: string[];
-  warnings: string[];
-}
-
 export interface PublicationManifestPayload {
   id: string;
   title: string;
@@ -206,9 +200,7 @@ export interface ArtifactPayloadMap {
   Outline: OutlinePayload;
   ContentDraft: ContentDraftPayload;
   ReviewReport: ReviewReportPayload;
-  ChapterApprovalDecision: RevisionFeedbackPayload;
-  RevisionFeedback: RevisionFeedbackPayload;
-  ValidationReport: ValidationReportPayload;
+  GateReview: GateReviewPayload;
   BeautifiedContent: BeautifiedContentPayload;
   AssessmentSet: AssessmentSetPayload;
   PublicationManifest: PublicationManifestPayload;
@@ -345,19 +337,7 @@ const validators: Record<
     requireObjectArray(record, 'issues', errors);
     return { valid: errors.length === 0, errors };
   },
-  ChapterApprovalDecision: revisionFeedbackValidator,
-  RevisionFeedback: revisionFeedbackValidator,
-  ValidationReport: (payload) => {
-    const errors: string[] = [];
-    const record = requireRecord(payload, errors);
-    if (!record) return { valid: false, errors };
-    requireString(record, 'id', errors);
-    if (typeof record.passed !== 'boolean') errors.push('passed 必须是布尔值');
-    requireStringArray(record, 'checkedArtifactVersionIds', errors);
-    requireStringArray(record, 'errors', errors);
-    requireStringArray(record, 'warnings', errors);
-    return { valid: errors.length === 0, errors };
-  },
+  GateReview: gateReviewValidator,
   BeautifiedContent: (payload) => {
     const errors: string[] = [];
     const record = requireRecord(payload, errors);
@@ -391,11 +371,11 @@ const validators: Record<
   },
 };
 
-function revisionFeedbackValidator(payload: JsonValue): ContractValidationResult {
+function gateReviewValidator(payload: JsonValue): ContractValidationResult {
   const errors: string[] = [];
   const record = requireRecord(payload, errors);
   if (!record) return { valid: false, errors };
-  for (const key of ['scopeType', 'scopeId', 'decision', 'comments', 'targetArtifactVersionId']) {
+  for (const key of ['scopeType', 'reviewer', 'decision', 'comments', 'contentHash']) {
     requireString(record, key, errors);
   }
   return { valid: errors.length === 0, errors };
@@ -451,27 +431,11 @@ export const contentPipelineContracts: ContractDefinition[] = [
     required: true,
   },
   {
-    id: 'contract-chapter-decision-v1',
-    artifactType: contentPipelineArtifactTypes.chapterDecision,
+    id: 'contract-gate-review-v1',
+    artifactType: contentPipelineArtifactTypes.gateReview,
     version: 1,
-    schemaId: 'content-pipeline/chapter-decision@1',
-    description: '用户按章节给出的通过与审批意见',
-    required: true,
-  },
-  {
-    id: 'contract-revision-feedback-v1',
-    artifactType: contentPipelineArtifactTypes.revisionFeedback,
-    version: 1,
-    schemaId: 'content-pipeline/revision-feedback@1',
-    description: '审校、章节审批或发布驳回产生的修订意见',
-    required: true,
-  },
-  {
-    id: 'contract-validation-report-v1',
-    artifactType: contentPipelineArtifactTypes.validationReport,
-    version: 1,
-    schemaId: 'content-pipeline/validation-report@1',
-    description: '最终质检和渲染验证报告',
+    schemaId: 'content-pipeline/gate-review@1',
+    description: '人工门禁与契约门给出的评估：通过与否 + 修订意见',
     required: true,
   },
   {

@@ -22,6 +22,10 @@ _THREAD_POOLS_LOCK = threading.Lock()
 _DRIVER = None
 
 
+_ACTIVE = threading.local()
+"""本线程当前借出的连接与嵌套深度。"""
+
+
 def _open_sqlite_connection() -> sqlite3.Connection:
     path = paths.DB_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -34,8 +38,23 @@ def _open_sqlite_connection() -> sqlite3.Connection:
 
 @contextmanager
 def connection() -> Iterator[sqlite3.Connection]:
-    """借用 SQLite 连接；归还前回滚，避免事务残留。"""
+    """借用 SQLite 连接；归还前回滚，避免事务残留。
+
+    同一线程内嵌套使用会复用同一个连接与同一个事务：只有最外层提交或回滚，
+    因此「一组写入要么全落、要么全不落」可以由嵌套的仓储调用组合出来。
+    """
+    active = getattr(_ACTIVE, "connection", None)
+    if active is not None:
+        _ACTIVE.depth += 1
+        try:
+            yield active
+        finally:
+            _ACTIVE.depth -= 1
+        return
+
     conn = _acquire_sqlite_connection()
+    _ACTIVE.connection = conn
+    _ACTIVE.depth = 1
     try:
         yield conn
         conn.commit()
@@ -43,6 +62,8 @@ def connection() -> Iterator[sqlite3.Connection]:
         conn.rollback()
         raise
     finally:
+        _ACTIVE.connection = None
+        _ACTIVE.depth = 0
         _release_sqlite_connection(conn)
 
 

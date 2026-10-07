@@ -1,222 +1,281 @@
+/* 节点提示词地图：某次运行里一个节点的调用序列、六阶段、输入输出与模板漂移。
+ *
+ * 数据全部来自后端读接口，前端不自己判断节点与阶段状态；阶段的中文名与摘要在这里
+ * 给 —— 渲染本来就要按 `kind` 分派，文案跟着分派走，不占后端字段。
+ */
+
 import { apiGet } from '../runtime/apiClient';
+import type { ArtifactRef } from './runs';
 
-export type PromptMapCallStatus = 'ok' | 'error' | 'running';
+export type StageKind = 'template' | 'sources' | 'context' | 'messages' | 'request' | 'output';
 
-export interface PromptMapCall {
-  id: string;
+/** 阶段状态：尚未发生、已填充、输出中、失败；`pending` 的阶段没有数据。 */
+export type StageState = 'pending' | 'filled' | 'streaming' | 'failed';
+
+/** 模板声明的一个变量由什么填充。`portId` 为空而状态是 `bound` 说明值来自平台上下文。 */
+export interface TemplateBinding {
+  name: string;
+  state: 'pending' | 'bound';
+  portId: string | null;
+  nodeId: string | null;
+  itemKey: string | null;
+  contentHash: string | null;
+}
+
+export interface TemplateData {
+  ref: string;
+  currentHash: string | null;
+  runHash: string | null;
+  changed: boolean;
+  variables: string[];
+  bindings: TemplateBinding[];
+  template: string | null;
+  staticPrefix: string | null;
+  injection: string | null;
+}
+
+/** 这次调用用到的提示词资产片段。 */
+export interface SourceItem {
+  ref: string;
+  name: string | null;
+  order: number;
   role: string;
+  contentHash: string;
+  templateText: string;
+  renderedText: string;
+}
+
+/** 一个变量由哪份产物版本填充。 */
+export interface BindingItem {
+  portId: string;
+  nodeId: string;
+  itemKey: string;
+  contentHash: string;
+}
+
+export interface RequestData {
   provider: string;
   model: string;
-  inputText: string;
-  outputText: string;
+  role: string;
+  temperature: number;
+  attempt: number;
+  startedAt: string;
+}
+
+export interface OutputData {
+  message: Record<string, unknown> | null;
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
   durationMs: number;
-  status: PromptMapCallStatus;
+  completedAt: string;
   error: string;
-  createdAt: string;
-  template: string;
 }
 
-/** `/llm/call-logs` 返回的真实请求行，字段由后端从 `llm_runs` 映射而来。 */
-export interface PromptMapCallApiRow {
-  id: string;
+export type PromptMapStage =
+  | { kind: 'template'; state: StageState; data: TemplateData | null }
+  | { kind: 'sources'; state: StageState; data: SourceItem[] | null }
+  | { kind: 'context'; state: StageState; data: BindingItem[] | null }
+  | { kind: 'messages'; state: StageState; data: Array<Record<string, unknown>> | null }
+  | { kind: 'request'; state: StageState; data: RequestData | null }
+  | { kind: 'output'; state: StageState; data: OutputData | null };
+
+/** 一次调用的状态：`pending` 是预期调用，其余取自 `llm_runs.status`。 */
+export interface PromptMapCall {
+  callId: string | null;
+  sequence: number;
+  attempt: number;
+  itemKey: string;
+  generation: number;
   role: string;
-  provider: string;
-  model: string;
-  input_text: string;
-  output_text: string;
-  prompt_tokens: number;
-  completion_tokens: number;
-  total_tokens: number;
-  duration_ms: number;
-  status: 'running' | 'success' | 'error' | 'cancelled';
-  error: string;
-  created_at: string;
+  status: string;
+  stages: PromptMapStage[];
 }
 
-function promptMapStatus(status: PromptMapCallApiRow['status']): PromptMapCallStatus {
-  if (status === 'success') return 'ok';
-  if (status === 'running') return 'running';
-  return 'error';
+/** 一个产物版本的引用与正文；类型定义在运行读模型里，这里只转发。 */
+export type { ArtifactRef };
+
+export interface PromptMap {
+  runId: string;
+  workflowId: string;
+  nodeId: string;
+  nodeStatus: string;
+  promptRef: string | null;
+  template: TemplateData | null;
+  calls: PromptMapCall[];
+  inputs: ArtifactRef[];
+  outputs: ArtifactRef[];
 }
 
-export const promptRoleLabels: Record<string, string> = {
-  tutor: 'Tutor Agent',
-  curriculum: '课程设计 Agent',
-  'context-profiler': '上下文画像 Agent',
-  'intent-planner': '学习意图 Agent',
-  'outline-architect': '大纲架构 Agent',
-  'section-writer': '章节主笔 Agent',
-  reviewer: '审校 Agent',
-  reviser: '修订 Agent',
-  beautifier: '教材美化 Agent',
-  'assessment-generator': '练习生成 Agent',
-  'quality-publisher': '质量发布 Agent',
+export const stageLabels: Record<StageKind, string> = {
+  template: '模板原文',
+  sources: '来源资产',
+  context: '上下文注入',
+  messages: '最终消息',
+  request: '已提交请求',
+  output: '模型输出',
 };
 
-export const currentPromptTemplates: Record<string, string> = {
-  'context-profiler': '读取用户画像与最近学习上下文，整理为可供课程设计使用的 ContextSnapshot。只保留可验证信息，不替用户臆测学习目标。',
-  'intent-planner': '根据 ContextSnapshot 和用户目标生成 Learning Brief，明确范围、预期结果、约束与待确认问题。',
-  'outline-architect': '根据 Learning Brief 设计可执行课程大纲，覆盖目标、知识点、章节依赖与验收标准。',
-  'section-writer': '依据已确认的大纲条目撰写章节草稿，保持术语一致，并为每个关键概念提供可验证的学习结果。',
-  reviewer: '审阅章节草稿，输出结构化问题、严重级别与可执行的修订建议，不直接掩盖原文问题。',
-  reviser: '根据审校报告和用户意见修订章节，保留有效内容并逐项关闭已确认的问题。',
-  beautifier: '在不改变事实与结构契约的前提下，统一教材格式、层级、示例和阅读节奏。',
-  'assessment-generator': '根据课程目标与章节内容生成练习、参考答案和解析，并检查题目覆盖范围。',
-  'quality-publisher': '检查发布清单与所有必需产物，确认内容可发布后生成最终教材版本。',
-  tutor: '理解学习者当前目标与上下文，选择合适的教学行动，并在必要时调用工具完成任务。',
-  curriculum: '根据学习目标、画像和约束设计可验证的课程结构与内容产物。',
+export const stageStateLabels: Record<StageState, string> = {
+  pending: '待填充',
+  filled: '已填充',
+  streaming: '输出中',
+  failed: '失败',
 };
 
-export function promptRoleLabel(role: string): string {
-  return promptRoleLabels[role] ?? role;
+/** 阶段的中文名。 */
+export function stageLabel(kind: StageKind): string {
+  return stageLabels[kind];
 }
 
-export function promptTemplateForRole(role: string): string {
-  return currentPromptTemplates[role] ?? '当前提示词模板由工作流侧提供。';
+/** 阶段状态的中文名。 */
+export function stageStateLabel(state: StageState): string {
+  return stageStateLabels[state];
 }
 
-export function sortPromptMapCalls(calls: PromptMapCall[]): PromptMapCall[] {
-  return [...calls].sort((left, right) => {
-    const byTime = left.createdAt.localeCompare(right.createdAt);
-    return byTime || left.id.localeCompare(right.id);
-  });
+/** 调用状态的中文名；取值来自 `llm_runs.status`，多出的一档 `pending` 是预期调用。 */
+export function callStatusLabel(status: string): string {
+  if (status === 'pending') return '待运行';
+  if (status === 'running') return '执行中';
+  if (status === 'success') return '完成';
+  if (status === 'error') return '失败';
+  if (status === 'cancelled') return '已取消';
+  return status;
 }
 
-export function mergePromptMapCalls(
-  current: PromptMapCall[],
-  incoming: PromptMapCall[],
-): PromptMapCall[] {
-  const merged = new Map(current.map((call) => [call.id, call]));
-  for (const call of incoming) merged.set(call.id, call);
-  return sortPromptMapCalls([...merged.values()]);
+/** 阶段的摘要行：不展开也能看出这一步到哪了。 */
+export function stageSummary(stage: PromptMapStage): string {
+  switch (stage.kind) {
+    case 'template':
+      if (!stage.data) return stageStateLabel(stage.state);
+      return `模板 ${shortHash(stage.data.currentHash)}`;
+    case 'sources':
+      if (!stage.data) return stageStateLabel(stage.state);
+      return `${stage.data.length} 段来源资产`;
+    case 'context':
+      if (!stage.data) return stageStateLabel(stage.state);
+      return `${stage.data.length} 个输入端口`;
+    case 'messages':
+      if (!stage.data) return stageStateLabel(stage.state);
+      return `${stage.data.length} 条消息`;
+    case 'request':
+      if (!stage.data) return stageStateLabel(stage.state);
+      return `${stage.data.model} · 温度 ${stage.data.temperature}`;
+    case 'output':
+      if (stage.state === 'streaming') return '输出中';
+      if (!stage.data) return stageStateLabel(stage.state);
+      if (stage.state === 'failed') return `失败：${stage.data.error}`;
+      return `${stage.data.totalTokens} tokens · ${stage.data.durationMs} ms`;
+  }
 }
 
-export function runToPromptMapCall(row: PromptMapCallApiRow): PromptMapCall {
-  return {
-    id: row.id,
-    role: row.role,
-    provider: row.provider,
-    model: row.model,
-    inputText: row.input_text,
-    outputText: row.output_text,
-    promptTokens: row.prompt_tokens,
-    completionTokens: row.completion_tokens,
-    totalTokens: row.total_tokens,
-    durationMs: row.duration_ms,
-    status: promptMapStatus(row.status),
-    error: row.error,
-    createdAt: row.created_at,
-    template: promptTemplateForRole(row.role),
-  };
+/** 阶段的正文：展开时看到的就是这一步实际进出的内容。 */
+export function stageDetail(stage: PromptMapStage): string {
+  switch (stage.kind) {
+    case 'template':
+      return stage.data?.template ?? '';
+    case 'sources':
+      return (stage.data ?? []).map((source) => source.renderedText).join('\n\n---\n\n');
+    case 'context':
+      return stage.data ? JSON.stringify(stage.data, null, 2) : '';
+    case 'messages':
+      return (stage.data ?? [])
+        .map((message) => `[${String(message.role ?? '')}]\n${String(message.content ?? '')}`)
+        .join('\n\n');
+    case 'request':
+      return stage.data ? JSON.stringify(stage.data, null, 2) : '';
+    case 'output':
+      if (!stage.data) return '';
+      if (stage.data.error) return stage.data.error;
+      return JSON.stringify(stage.data.message, null, 2);
+  }
 }
 
-export async function fetchPromptMapCalls(limit = 100): Promise<PromptMapCall[]> {
-  const response = await apiGet<{ logs: PromptMapCallApiRow[] }>(`/llm/call-logs?limit=${limit}`);
-  return sortPromptMapCalls(response.logs.map(runToPromptMapCall));
+/** 变量清单的行：每个变量是否已绑定、绑定到什么。 */
+export interface TemplateBindingRow {
+  name: string;
+  state: 'pending' | 'bound';
+  source: string;
 }
 
-export function createDemoPromptMapCall({
-  id,
-  role,
-  inputText,
-  outputText = '',
-  status = 'running',
-  createdAt = new Date().toISOString(),
-  durationMs = 0,
-  totalTokens = 0,
-}: {
-  id: string;
-  role: string;
-  inputText: string;
-  outputText?: string;
-  status?: PromptMapCallStatus;
-  createdAt?: string;
-  durationMs?: number;
-  totalTokens?: number;
-}): PromptMapCall {
-  return {
-    id,
-    role,
-    provider: 'workflow-demo',
-    model: 'content-pipeline-demo',
-    inputText,
-    outputText,
-    promptTokens: totalTokens,
-    completionTokens: 0,
-    totalTokens,
-    durationMs,
-    status,
-    error: status === 'error' ? outputText : '',
-    createdAt,
-    template: promptTemplateForRole(role),
-  };
+export function bindingRows(template: TemplateData | null): TemplateBindingRow[] {
+  return (template?.bindings ?? []).map((binding) => ({
+    name: binding.name,
+    state: binding.state,
+    source: bindingSource(binding),
+  }));
 }
 
-export const initialPromptMapCalls: PromptMapCall[] = [
-  createDemoPromptMapCall({
-    id: 'prompt-call-1',
-    role: 'context-profiler',
-    inputText: '请根据用户画像、最近 Tutor Query 和学习历史生成上下文快照。',
-    outputText: '已冻结用户画像、最近 Tutor Query 和学习历史。',
-    status: 'ok',
-    createdAt: '2026-09-19T09:18:12.000Z',
-    durationMs: 812,
-    totalTokens: 1240,
-  }),
-  createDemoPromptMapCall({
-    id: 'prompt-call-2',
-    role: 'intent-planner',
-    inputText: '学习目标：系统学习前端性能优化；可用时间：每周 6 小时。',
-    outputText: 'Learning Brief v2：覆盖性能指标、渲染性能和网络优化。',
-    status: 'ok',
-    createdAt: '2026-09-19T09:19:03.000Z',
-    durationMs: 1460,
-    totalTokens: 2180,
-  }),
-  createDemoPromptMapCall({
-    id: 'prompt-call-3',
-    role: 'outline-architect',
-    inputText: '根据已确认 Learning Brief 设计章节依赖、知识点和验收标准。',
-    outputText: '课程大纲 v3 已生成，包含 4 个 OutlineItem。',
-    status: 'ok',
-    createdAt: '2026-09-19T09:23:47.000Z',
-    durationMs: 2310,
-    totalTokens: 3620,
-  }),
-  createDemoPromptMapCall({
-    id: 'prompt-call-4',
-    role: 'section-writer',
-    inputText: '并行撰写性能指标、渲染性能、网络优化和缓存策略章节。',
-    outputText: '4 个章节草稿已完成。',
-    status: 'ok',
-    createdAt: '2026-09-19T09:31:25.000Z',
-    durationMs: 6280,
-    totalTokens: 8140,
-  }),
-  createDemoPromptMapCall({
-    id: 'prompt-call-5',
-    role: 'reviewer',
-    inputText: '审阅章节草稿，检查术语一致性、前后衔接和验收标准覆盖。',
-    outputText: '发现 6 个问题，主要集中在术语一致性和前后衔接。',
-    status: 'ok',
-    createdAt: '2026-09-19T09:38:16.000Z',
-    durationMs: 3180,
-    totalTokens: 4410,
-  }),
-  createDemoPromptMapCall({
-    id: 'prompt-call-6',
-    role: 'reviser',
-    inputText: '应用审校报告，整理修订稿并保留用户可确认的变更说明。',
-    outputText: '修订稿已生成，等待章节审批。',
-    status: 'ok',
-    createdAt: '2026-09-19T09:44:08.000Z',
-    durationMs: 2740,
-    totalTokens: 3920,
-  }),
-];
+function bindingSource(binding: TemplateBinding): string {
+  if (binding.state === 'pending') return '未绑定';
+  if (binding.portId) return `产物端口 ${binding.portId}`;
+  return '平台上下文';
+}
 
+/** 模板漂移的说明；没有漂移时返回 null。 */
+export function driftLabel(template: TemplateData | null): string | null {
+  if (!template?.changed) return null;
+  return `本次运行用的是 ${shortHash(template.runHash)}，当前模板是 ${shortHash(template.currentHash)}`;
+}
 
+/** `GateReview` 评估的要点：谁审的、结论、意见。 */
+export interface GateReviewRow {
+  reviewer: string;
+  decision: string;
+  comments: string;
+}
 
+export function gateRows(outputs: ArtifactRef[]): GateReviewRow[] {
+  return outputs
+    .filter((artifact) => artifact.type === 'GateReview' && isRecord(artifact.payload))
+    .map((artifact) => {
+      const payload = artifact.payload as Record<string, unknown>;
+      return {
+        reviewer: String(payload.reviewer ?? ''),
+        decision: String(payload.decision ?? ''),
+        comments: String(payload.comments ?? ''),
+      };
+    });
+}
+
+/** 产物的单行描述。 */
+export function artifactLabel(artifact: ArtifactRef): string {
+  const type = artifact.type || '未知类型';
+  return `${artifact.portId} · ${type} · ${shortHash(artifact.contentHash)}`;
+}
+
+/** 内容身份的短写：`sha256:1a2b3c4d…` → `1a2b3c4`。 */
+export function shortHash(hash: string | null): string {
+  if (!hash) return '—';
+  return hash.replace(/^sha256:/, '').slice(0, 7);
+}
+
+function isRecord(value: unknown): boolean {
+  return typeof value === 'object' && value !== null;
+}
+
+/** 取某节点在该次运行里的提示词地图。 */
+export async function fetchNodePromptMap(
+  workflowId: string,
+  runId: string,
+  nodeId: string,
+): Promise<PromptMap> {
+  return apiGet<PromptMap>(
+    `/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}` +
+      `/nodes/${encodeURIComponent(nodeId)}/prompt-map`,
+  );
+}
+
+/** 取提示词两版之间的统一 diff。 */
+export async function fetchPromptDiff(ref: string, from: string, to: string): Promise<string> {
+  const query = new URLSearchParams({ from, to });
+  const payload = await apiGet<{ unifiedDiff: string }>(
+    `/prompts/${refPath(ref)}/diff?${query.toString()}`,
+  );
+  return payload.unifiedDiff;
+}
+
+/** 资产路径进 URL：斜杠是路径分隔，逐段编码后原样保留。 */
+function refPath(ref: string): string {
+  return ref.split('/').map(encodeURIComponent).join('/');
+}

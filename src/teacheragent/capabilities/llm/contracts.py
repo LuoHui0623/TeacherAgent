@@ -1,6 +1,7 @@
 """LLM 能力的公共输入、请求和运行记录契约。"""
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
@@ -64,6 +65,29 @@ class LlmRequestContext:
     llm_messages: LlmMessages
 
 
+@dataclass(frozen=True, slots=True)
+class WorkflowCallOrigin:
+    """一次调用属于图上的哪个节点实例；非 workflow 调用不传。
+
+    `bindings` 是这次调用读到的产物版本（`{输入端口: [{node_id, port_id, item_key,
+    content_hash}]}`），有了它才能回答「这份产物基于哪一版输入」。
+    """
+
+    # 节点实例
+    workflow_id: str
+    workflow_run_id: str
+    node_id: str
+    generation: int = 0
+    item_key: str = ""
+
+    # 这次用到的提示词
+    prompt_ref: str | None = None
+    prompt_content_hash: str | None = None
+
+    # 这次读到的产物版本
+    bindings: Mapping[str, list[dict[str, str]]] = field(default_factory=dict)
+
+
 class RunContext(BaseModel):
     """注入 LlmModel 的调用链元数据和提示词追踪数据。"""
 
@@ -111,9 +135,10 @@ class LlmRun(BaseModel):
 
 __all__ = [
     "LlmConfig",
+    "LlmMessages",
     "LlmRequestContext",
     "LlmRun",
     "PromptSource",
-    "LlmMessages",
     "RunContext",
+    "WorkflowCallOrigin",
 ]

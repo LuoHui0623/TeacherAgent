@@ -10,7 +10,7 @@ from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResu
 from langchain_core.runnables import Runnable, RunnableLambda
 from pydantic import PrivateAttr
 
-from teacheragent.capabilities.llm.contracts import LlmMessages
+from teacheragent.capabilities.llm.contracts import LlmMessages, WorkflowCallOrigin
 from teacheragent.config.llm import LlmSettings
 from teacheragent.infrastructure.llm.client import extract_usage
 from teacheragent.infrastructure.llm.recorder import RunHandle, RunRecorder
@@ -40,6 +40,7 @@ class LlmModel(BaseChatModel):
     _default_context: TaskRuntimeContext = PrivateAttr()
     _runtime: LlmRuntime = PrivateAttr()
     _recorder: RunRecorder = PrivateAttr()
+    _origin: WorkflowCallOrigin | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -50,6 +51,7 @@ class LlmModel(BaseChatModel):
         default_context: TaskRuntimeContext,
         runtime: LlmRuntime,
         recorder: RunRecorder | None = None,
+        origin: WorkflowCallOrigin | None = None,
     ) -> None:
         super().__init__()
         self._wrapped = wrapped
@@ -58,6 +60,7 @@ class LlmModel(BaseChatModel):
         self._default_context = default_context
         self._runtime = runtime
         self._recorder = recorder or RunRecorder()
+        self._origin = origin
 
     @property
     def _llm_type(self) -> str:
@@ -73,6 +76,7 @@ class LlmModel(BaseChatModel):
             default_context=self._default_context,
             runtime=self._runtime,
             recorder=self._recorder,
+            origin=self._origin,
         )
 
     def _generate(
@@ -194,6 +198,7 @@ class LlmModel(BaseChatModel):
             provider=self._settings["provider"],
             model=self._settings["model"],
             temperature=self._settings["temperature"],
+            origin=self._origin,
         ) as handle:
             yield handle
 

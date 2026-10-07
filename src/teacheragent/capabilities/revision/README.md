@@ -8,7 +8,7 @@
 
 | 输入 | 输出 | 契约 |
 |---|---|---|
-| `ContentDraft` + `ReviewReport` / `RevisionFeedback` | `ContentDraft`（修订版） | `content-pipeline/content-draft@1` |
+| `ContentDraft` + `ReviewReport` / `GateReview` | `ContentDraft`（修订版） | `content-pipeline/content-draft@1` |
 
 ## 边界
 

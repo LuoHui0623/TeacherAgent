@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  mainWorkflowDefinition,
-  mainWorkflowVersion,
-} from '../mocks/content-pipeline/main-workflow';
+import { buildWorkflowVersion } from '../mocks/content-pipeline/main-workflow';
+import { mainWorkflowDefinition } from './fixtures/workflow-fixture';
 import {
   ArtifactStore,
   ContractValidationError,
@@ -17,6 +15,8 @@ import {
   createWorkflowRunSnapshot,
   validateWorkflowDefinition,
 } from '../services/content-pipeline/workflow';
+
+const mainWorkflowVersion = buildWorkflowVersion(mainWorkflowDefinition);
 
 const learningBrief: LearningBriefPayload = {
   id: 'brief-001',
@@ -54,7 +54,7 @@ describe('content pipeline workflow model', () => {
       (node) => node.id === 'chapter-writers',
     );
     expect(writer?.kind).toBe('fan-out');
-    expect(writer?.roleId).toBe('section-writer');
+    expect(writer?.roleId).toBe('chapter-writer');
     expect(writer?.config.concurrency).toBe(4);
   });
 

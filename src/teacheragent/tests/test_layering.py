@@ -58,6 +58,17 @@ def test_infrastructure_does_not_depend_on_domain():
     assert offenders == [], f"基建层不得依赖领域层：{offenders}"
 
 
+def test_workflow_layer_does_not_depend_on_outer_layers():
+    forbidden = ("teacheragent.api", "teacheragent.services")
+    offenders = sorted(
+        str(path.relative_to(PACKAGE_ROOT))
+        for path in (PACKAGE_ROOT / "workflows").rglob("*.py")
+        if path.name != "__init__.py"
+        if any(token in _source(path) for token in forbidden)
+    )
+    assert offenders == [], f"工作流层不得依赖 API 或服务层：{offenders}"
+
+
 def test_capabilities_use_repository_interface_only():
     offenders = [
         str(path.relative_to(PACKAGE_ROOT))

@@ -8,7 +8,7 @@ export type ContentAgentRole =
   | 'context-profiler'
   | 'intent-planner'
   | 'outline-architect'
-  | 'section-writer'
+  | 'chapter-writer'
   | 'reviewer'
   | 'reviser'
   | 'beautifier'

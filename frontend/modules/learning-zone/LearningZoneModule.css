@@ -1825,7 +1825,7 @@
   gap: 8px;
 }
 
-.tutor-message > span {
+.tutor-message__avatar {
   display: inline-flex;
   width: 24px;
   height: 24px;
@@ -1834,6 +1834,24 @@
   border-radius: 6px;
   background: var(--surface-alt);
   color: var(--ink-tertiary);
+}
+
+.tutor-message__body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tutor-message__meta {
+  color: var(--ink-tertiary);
+  font-size: 10px;
+  font-weight: 640;
+}
+
+.tutor-message__run {
+  color: var(--accent);
+  font-size: 10px;
 }
 
 .tutor-message p {
@@ -1846,21 +1864,43 @@
   line-height: 1.65;
 }
 
+.tutor-message.is-proposal p {
+  border-left: 2px solid var(--amber);
+}
+
 .tutor-message.is-user {
   grid-template-columns: minmax(0, 1fr) 24px;
 }
 
-.tutor-message.is-user > span {
+.tutor-message.is-user .tutor-message__avatar {
   grid-column: 2;
   grid-row: 1;
   color: var(--accent);
 }
 
-.tutor-message.is-user p {
+.tutor-message.is-user .tutor-message__body {
   grid-column: 1;
   grid-row: 1;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.tutor-message.is-user p {
   background: var(--accent-soft);
   color: var(--accent-ink);
+}
+
+.tutor-message.is-user.is-proposal p {
+  border-left: none;
+  border-right: 2px solid var(--amber);
+}
+
+.tutor-drawer__empty {
+  margin: 0;
+  padding: 12px 2px;
+  color: var(--ink-tertiary);
+  font-size: 11px;
+  line-height: 1.7;
 }
 
 .tutor-drawer__composer {
@@ -1872,7 +1912,7 @@
   display: block;
   width: 100%;
   min-height: 44px;
-  padding: 11px 52px 11px 14px;
+  padding: 11px 78px 11px 14px;
   resize: none;
   border: 1px solid var(--border);
   border-radius: 22px;
@@ -1894,18 +1934,24 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 5px;
   position: absolute;
   top: 22px;
   right: 20px;
   transform: translateY(-50%);
 }
 
+.tutor-drawer__propose,
 .tutor-drawer__send {
   width: 31px;
   height: 31px;
   min-height: 31px;
   padding: 0;
   border-radius: 50%;
+}
+
+.tutor-drawer__propose {
+  color: var(--amber);
 }
 
 /* --------------------------------------------------------------------------

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from fastapi import Depends, HTTPException, Request
 
 from teacheragent.infrastructure.llm.runtime import LlmRuntime
+from teacheragent.workflows.execution import WorkflowExecutor
 
 
 SERVICES_ATTRIBUTE = "services"
@@ -21,6 +22,7 @@ class AppServices:
     """应用级共享服务集合。"""
 
     llm_runtime: LlmRuntime
+    workflow_executor: WorkflowExecutor
 
 
 def get_services(request: Request) -> AppServices:
@@ -34,3 +36,8 @@ def get_services(request: Request) -> AppServices:
 def get_runtime(services: AppServices = Depends(get_services)) -> LlmRuntime:
     """返回共享 LLM 运行时。"""
     return services.llm_runtime
+
+
+def get_executor(services: AppServices = Depends(get_services)) -> WorkflowExecutor:
+    """返回共享的执行器：暂停标记是它的内存状态，控制动作必须落在同一个实例上。"""
+    return services.workflow_executor

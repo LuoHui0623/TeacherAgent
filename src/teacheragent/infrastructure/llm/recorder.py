@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
 
-from teacheragent.capabilities.llm.contracts import LlmRequestContext
+from teacheragent.capabilities.llm.contracts import LlmRequestContext, WorkflowCallOrigin
 from teacheragent.infrastructure.store import repositories
 
 
@@ -23,8 +23,12 @@ class RunRecorder:
         provider: str,
         model: str,
         temperature: float,
+        origin: WorkflowCallOrigin | None = None,
     ) -> Iterator["RunHandle"]:
-        """创建 running 记录，并在退出时写入成功或错误结果。"""
+        """创建 running 记录，并在退出时写入成功或错误结果。
+
+        `origin` 说明这次调用属于哪个节点实例；非 workflow 调用不传，相关列为 NULL。
+        """
         started = time.perf_counter()
         started_at = _now()
         repositories.llm_runs.create_run(
@@ -42,6 +46,7 @@ class RunRecorder:
                 "input_messages": request.llm_messages.messages,
                 "tools": request.llm_messages.tools,
                 "started_at": started_at,
+                "origin": origin,
             }
         )
         handle = RunHandle()

@@ -35,8 +35,9 @@
 
 | 文档 | 领域 |
 |---|---|
-| [`agents.md`](src/teacheragent/docs/agents.md) | Agent 模型：Tutor 工具调用 Agent 与 Curriculum LangGraph 工作流 |
+| [`agents.md`](src/teacheragent/docs/agents.md) | Agent 模型与 role 全集：Tutor 工具调用 Agent |
 | [`prompts.md`](src/teacheragent/docs/prompts.md) | 统一 Agent 提示词资产：位置、加载与版本 |
+| [`chat.md`](src/teacheragent/docs/chat.md) | 对话与运行发起：消息存储、一轮对话的写入点、proposal 发起面 |
 | [`user-profile.md`](src/teacheragent/docs/user-profile.md) | 用户画像：两类资产、Markdown 规范、结构化契约、版本策略 |
 
 ## 设计哲学（节选）

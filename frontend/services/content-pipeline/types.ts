@@ -20,7 +20,8 @@ export type NodeRunStatus =
   | 'succeeded'
   | 'failed'
   | 'skipped'
-  | 'stale';
+  | 'stale'
+  | 'cancelled';
 
 export type WorkflowNodeKind =
   | 'trigger'
@@ -81,6 +82,8 @@ export interface WorkflowNodeDefinition {
   label: string;
   description: string;
   roleId?: string;
+  /** 提示词资产路径，形如 agent/prompts/<名称>.md；由后端图定义提供。 */
+  promptRef?: string;
   inputs: PortDefinition[];
   outputs: PortDefinition[];
   config: Record<string, JsonValue>;

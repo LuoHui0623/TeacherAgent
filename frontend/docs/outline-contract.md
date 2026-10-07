@@ -461,7 +461,7 @@ export interface OutlineVersion {
 
 ### 4.6 落地结果（已完成）
 
-草案已按 4.4 落成代码，未留待确认项。
+草案已按 4.4 落成代码，未留待确认项。这一节的改名列里有一部分文件（`outlineStore.ts`、`mocks/content-pipeline/agents.ts` 等）后来随演示引擎一起不再被应用引用，它们现在的状态见 [`frontend/README.md`](../README.md) 的「旧的内存运行引擎（待清理）」；契约本身（`contracts.ts`）仍在用。
 
 ### 4.7 大纲不再携带 brief 引用与知识点 id
 
@@ -505,7 +505,7 @@ mock 的大纲原本**没有**条目间依赖；我在改名时"顺带"给 `buil
 
 workflow 里把输出端口从 `blueprint` 改成 `outline` 后，**mock handler 的 `artifactOutput(..., 'blueprint', ...)` 漏改**，工件送不到下游端口。表现不是报错，而是运行停在 `paused` —— **没有错误信息，只有状态不对**，排查成本高。凡是端口名 / 事件名 / 路由键这类**字符串耦合**，改名必须同时检查声明侧与使用侧。
 
-### 4.7 结果与遗留
+### 4.8 结果与遗留
 
 | # | 状态 | 内容 |
 |---|---|---|

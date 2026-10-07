@@ -102,12 +102,12 @@ describe('outline store', () => {
     const claimed = store.claimNodes({
       outlineId: outline.id,
       count: 1,
-      assignedTo: 'section-writer-1',
+      assignedTo: 'chapter-writer-1',
       updatedAt: '2026-09-13T00:01:00.000Z',
     });
     expect(claimed[0].id).toBe('outline-1');
     expect(claimed[0].work.status).toBe('assigned');
-    expect(claimed[0].work.assignedTo).toBe('section-writer-1');
+    expect(claimed[0].work.assignedTo).toBe('chapter-writer-1');
 
     store.startNode({
       outlineId: outline.id,
@@ -138,7 +138,7 @@ describe('outline store', () => {
     store.claimNodes({
       outlineId: outline.id,
       count: 2,
-      assignedTo: 'section-writer-1',
+      assignedTo: 'chapter-writer-1',
       updatedAt: '2026-09-13T00:01:00.000Z',
     });
     store.completeNode({

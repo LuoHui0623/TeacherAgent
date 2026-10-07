@@ -8,7 +8,7 @@
 
 | 输入 | 输出 | 契约 |
 |---|---|---|
-| `BeautifiedContent` + `AssessmentSet` | `ValidationReport`、`PublicationManifest` | `content-pipeline/validation-report@1`、`content-pipeline/publication-manifest@1` |
+| `BeautifiedContent` + `AssessmentSet` | `GateReview`、`PublicationManifest` | `content-pipeline/gate-review@1`、`content-pipeline/publication-manifest@1` |
 
 ## 边界
 

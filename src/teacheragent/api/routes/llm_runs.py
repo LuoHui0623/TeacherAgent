@@ -3,7 +3,7 @@
 import json
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from teacheragent.infrastructure.store import repositories
 
@@ -12,7 +12,11 @@ router = APIRouter(prefix="/llm")
 
 
 class PromptMapCallRead(BaseModel):
-    """提示词地图所需的调用字段，取自 `llm_runs`。"""
+    """提示词地图所需的调用字段，取自 `llm_runs`。
+
+    `node_id` 为 NULL 表示这次调用不属于任何图节点（Tutor 对话）；`prompt_sources`
+    是这次调用实际用到的提示词资产与其内容身份。
+    """
 
     id: str
     role: str
@@ -27,6 +31,8 @@ class PromptMapCallRead(BaseModel):
     status: str
     error: str
     created_at: str
+    node_id: str | None = None
+    prompt_sources: list[dict] = Field(default_factory=list)
 
 
 @router.get("/call-logs")
@@ -50,10 +56,18 @@ def list_call_logs(
                 status=row["status"],
                 error=row["error"],
                 created_at=row["started_at"],
+                node_id=row["node_id"],
+                prompt_sources=_prompt_sources(row["prompt_sources_json"]),
             ).model_dump()
             for row in repositories.llm_runs.list_runs(limit=limit)
         ]
     }
+
+
+def _prompt_sources(raw: str) -> list[dict]:
+    """解析落库的提示词来源；非 workflow 调用是空数组。"""
+    parsed = json.loads(raw) if raw else []
+    return parsed if isinstance(parsed, list) else []
 
 
 def _message_content(raw: str) -> str:

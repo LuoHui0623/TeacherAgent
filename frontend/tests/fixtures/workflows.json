@@ -1,0 +1,875 @@
+{
+  "id": "content-pipeline-main",
+  "name": "教材生产主流程",
+  "description": "从 Tutor 上下文到结构化大纲、内容生成、审校、美化和发布的领域主流程。",
+  "entryNodeIds": [
+    "tutor-trigger"
+  ],
+  "nodes": [
+    {
+      "id": "tutor-trigger",
+      "kind": "trigger",
+      "label": "Tutor 互动",
+      "description": "接收学习请求、提问和学习行为事件。",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "events",
+          "artifactType": "TutorEventBatch",
+          "required": true,
+          "multiple": true,
+          "description": "TutorEventBatch"
+        }
+      ],
+      "config": {}
+    },
+    {
+      "id": "context-snapshot",
+      "kind": "context",
+      "label": "上下文快照",
+      "description": "冻结用户画像、学习历史、当前 Query 和约束。",
+      "inputs": [
+        {
+          "id": "events",
+          "artifactType": "TutorEventBatch",
+          "required": true,
+          "multiple": true,
+          "description": "TutorEventBatch"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "snapshot",
+          "artifactType": "ContextSnapshot",
+          "required": true,
+          "multiple": false,
+          "description": "ContextSnapshot"
+        }
+      ],
+      "config": {}
+    },
+    {
+      "id": "intent-planner",
+      "kind": "agent",
+      "label": "意图与任务规划",
+      "description": "识别学习意图、范围、难度和预期结果。",
+      "inputs": [
+        {
+          "id": "snapshot",
+          "artifactType": "ContextSnapshot",
+          "required": true,
+          "multiple": false,
+          "description": "ContextSnapshot"
+        },
+        {
+          "id": "feedback",
+          "artifactType": "GateReview",
+          "required": false,
+          "multiple": false,
+          "description": "GateReview"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "brief",
+          "artifactType": "LearningBrief",
+          "required": true,
+          "multiple": false,
+          "description": "LearningBrief"
+        }
+      ],
+      "config": {},
+      "roleId": "intent-planner",
+      "promptRef": "agent/prompts/intent-planner.md"
+    },
+    {
+      "id": "brief-approval",
+      "kind": "human-gate",
+      "label": "确认 Learning Brief",
+      "description": "用户确认学习目标、范围和深度。",
+      "inputs": [
+        {
+          "id": "brief",
+          "artifactType": "LearningBrief",
+          "required": true,
+          "multiple": false,
+          "description": "LearningBrief"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "approved",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": false,
+          "description": "GateReview"
+        },
+        {
+          "id": "feedback",
+          "artifactType": "GateReview",
+          "required": false,
+          "multiple": false,
+          "description": "GateReview"
+        }
+      ],
+      "config": {
+        "approvePort": "approved",
+        "rejectPort": "feedback"
+      },
+      "humanApproval": {
+        "scopeType": "workflow",
+        "perItem": false,
+        "allowBatch": false,
+        "required": true
+      }
+    },
+    {
+      "id": "outline-architect",
+      "kind": "agent",
+      "label": "大纲架构",
+      "description": "生成章节、学习目标、知识点、体量和依赖。",
+      "inputs": [
+        {
+          "id": "brief",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": false,
+          "description": "GateReview"
+        },
+        {
+          "id": "feedback",
+          "artifactType": "GateReview",
+          "required": false,
+          "multiple": false,
+          "description": "GateReview"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "outline",
+          "artifactType": "Outline",
+          "required": true,
+          "multiple": false,
+          "description": "Outline"
+        }
+      ],
+      "config": {},
+      "roleId": "outline-architect",
+      "promptRef": "agent/prompts/outline-architect.md"
+    },
+    {
+      "id": "outline-contract-gate",
+      "kind": "contract-gate",
+      "label": "大纲 Contract 校验",
+      "description": "验证大纲结构、覆盖范围、依赖和验收标准。",
+      "inputs": [
+        {
+          "id": "outline",
+          "artifactType": "Outline",
+          "required": true,
+          "multiple": false,
+          "description": "Outline"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "validated",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": false,
+          "description": "GateReview"
+        },
+        {
+          "id": "invalid",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": false,
+          "description": "GateReview"
+        }
+      ],
+      "config": {
+        "approvePort": "validated",
+        "rejectPort": "invalid"
+      }
+    },
+    {
+      "id": "outline-approval",
+      "kind": "human-gate",
+      "label": "确认大纲",
+      "description": "用户确认结构化大纲并决定是否进入内容生产。",
+      "inputs": [
+        {
+          "id": "outline",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": false,
+          "description": "GateReview"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "approved",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": false,
+          "description": "GateReview"
+        },
+        {
+          "id": "feedback",
+          "artifactType": "GateReview",
+          "required": false,
+          "multiple": false,
+          "description": "GateReview"
+        }
+      ],
+      "config": {
+        "approvePort": "approved",
+        "rejectPort": "feedback"
+      },
+      "humanApproval": {
+        "scopeType": "outline",
+        "perItem": false,
+        "allowBatch": true,
+        "required": true
+      }
+    },
+    {
+      "id": "chapter-writers",
+      "kind": "fan-out",
+      "label": "章节主笔",
+      "description": "一位章节主笔负责一整个章节的正文编写，多章并行。",
+      "inputs": [
+        {
+          "id": "outline",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": false,
+          "description": "GateReview"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "drafts",
+          "artifactType": "ContentDraft",
+          "required": true,
+          "multiple": true,
+          "description": "ContentDraft"
+        }
+      ],
+      "config": {
+        "concurrency": 4,
+        "itemsFrom": "outline",
+        "itemsPath": "items",
+        "itemKey": "id"
+      },
+      "roleId": "chapter-writer"
+    },
+    {
+      "id": "reviewer",
+      "kind": "agent",
+      "label": "审校",
+      "description": "检查连续性、术语、颗粒度、重复和章节验收标准。",
+      "inputs": [
+        {
+          "id": "drafts",
+          "artifactType": "ContentDraft",
+          "required": true,
+          "multiple": true,
+          "description": "ContentDraft"
+        },
+        {
+          "id": "revisions",
+          "artifactType": "ContentDraft",
+          "required": false,
+          "multiple": true,
+          "description": "ContentDraft"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "report",
+          "artifactType": "ReviewReport",
+          "required": true,
+          "multiple": false,
+          "description": "ReviewReport"
+        }
+      ],
+      "config": {},
+      "roleId": "reviewer",
+      "promptRef": "agent/prompts/reviewer.md"
+    },
+    {
+      "id": "reviser",
+      "kind": "agent",
+      "label": "修订整理",
+      "description": "应用审校和用户意见，形成修订与二次整理稿。",
+      "inputs": [
+        {
+          "id": "drafts",
+          "artifactType": "ContentDraft",
+          "required": true,
+          "multiple": true,
+          "description": "ContentDraft"
+        },
+        {
+          "id": "report",
+          "artifactType": "ReviewReport",
+          "required": true,
+          "multiple": false,
+          "description": "ReviewReport"
+        },
+        {
+          "id": "feedback",
+          "artifactType": "GateReview",
+          "required": false,
+          "multiple": false,
+          "description": "GateReview"
+        },
+        {
+          "id": "validation",
+          "artifactType": "GateReview",
+          "required": false,
+          "multiple": false,
+          "description": "GateReview"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "revised",
+          "artifactType": "ContentDraft",
+          "required": true,
+          "multiple": true,
+          "description": "ContentDraft"
+        }
+      ],
+      "config": {},
+      "roleId": "reviser",
+      "promptRef": "agent/prompts/reviser.md"
+    },
+    {
+      "id": "chapter-approval",
+      "kind": "human-gate",
+      "label": "按章节确认修订",
+      "description": "用户逐章通过或提出审批意见。",
+      "inputs": [
+        {
+          "id": "drafts",
+          "artifactType": "ContentDraft",
+          "required": true,
+          "multiple": true,
+          "description": "ContentDraft"
+        },
+        {
+          "id": "report",
+          "artifactType": "ReviewReport",
+          "required": true,
+          "multiple": false,
+          "description": "ReviewReport"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "approved",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": true,
+          "description": "GateReview"
+        },
+        {
+          "id": "feedback",
+          "artifactType": "GateReview",
+          "required": false,
+          "multiple": false,
+          "description": "GateReview"
+        }
+      ],
+      "config": {
+        "approvePort": "approved",
+        "rejectPort": "feedback"
+      },
+      "humanApproval": {
+        "scopeType": "chapter",
+        "perItem": true,
+        "allowBatch": true,
+        "required": true,
+        "itemPort": "drafts",
+        "approvedOutcome": "章节通过",
+        "changesOutcome": "提出审批意见"
+      }
+    },
+    {
+      "id": "beautifier",
+      "kind": "agent",
+      "label": "美化与知识点增强",
+      "description": "增加公式、列表、表格、callout、Anchor、图示和封面。",
+      "inputs": [
+        {
+          "id": "content",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": true,
+          "description": "GateReview"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "beautified",
+          "artifactType": "BeautifiedContent",
+          "required": true,
+          "multiple": false,
+          "description": "BeautifiedContent"
+        }
+      ],
+      "config": {},
+      "roleId": "beautifier",
+      "promptRef": "agent/prompts/beautifier.md"
+    },
+    {
+      "id": "assessment-generator",
+      "kind": "agent",
+      "label": "出题",
+      "description": "根据正文和知识点生成题目、答案与解析。",
+      "inputs": [
+        {
+          "id": "content",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": true,
+          "description": "GateReview"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "assessments",
+          "artifactType": "AssessmentSet",
+          "required": true,
+          "multiple": false,
+          "description": "AssessmentSet"
+        }
+      ],
+      "config": {},
+      "roleId": "assessment-generator",
+      "promptRef": "agent/prompts/assessment-generator.md"
+    },
+    {
+      "id": "quality-gate",
+      "kind": "contract-gate",
+      "label": "质检与渲染验证",
+      "description": "检查公式、Mermaid、Anchor、知识点和内容完整性。",
+      "inputs": [
+        {
+          "id": "beautified",
+          "artifactType": "BeautifiedContent",
+          "required": true,
+          "multiple": false,
+          "description": "BeautifiedContent"
+        },
+        {
+          "id": "assessments",
+          "artifactType": "AssessmentSet",
+          "required": true,
+          "multiple": false,
+          "description": "AssessmentSet"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "passed",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": false,
+          "description": "GateReview"
+        },
+        {
+          "id": "failed",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": false,
+          "description": "GateReview"
+        },
+        {
+          "id": "manifest",
+          "artifactType": "PublicationManifest",
+          "required": true,
+          "multiple": false,
+          "description": "PublicationManifest"
+        }
+      ],
+      "config": {
+        "approvePort": "passed",
+        "rejectPort": "failed"
+      }
+    },
+    {
+      "id": "publish-approval",
+      "kind": "human-gate",
+      "label": "确认发布",
+      "description": "用户确认最终教材版本。",
+      "inputs": [
+        {
+          "id": "manifest",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": false,
+          "description": "GateReview"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "approved",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": false,
+          "description": "GateReview"
+        },
+        {
+          "id": "feedback",
+          "artifactType": "GateReview",
+          "required": false,
+          "multiple": false,
+          "description": "GateReview"
+        }
+      ],
+      "config": {
+        "approvePort": "approved",
+        "rejectPort": "feedback"
+      },
+      "humanApproval": {
+        "scopeType": "publish",
+        "perItem": false,
+        "allowBatch": false,
+        "required": true
+      }
+    },
+    {
+      "id": "publisher",
+      "kind": "persist",
+      "label": "发布教材",
+      "description": "冻结教材版本并写入教材资产。",
+      "inputs": [
+        {
+          "id": "manifest",
+          "artifactType": "GateReview",
+          "required": true,
+          "multiple": false,
+          "description": "GateReview"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "published",
+          "artifactType": "PublicationManifest",
+          "required": true,
+          "multiple": false,
+          "description": "PublicationManifest"
+        }
+      ],
+      "config": {}
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-trigger-context",
+      "from": {
+        "nodeId": "tutor-trigger",
+        "portId": "events"
+      },
+      "to": {
+        "nodeId": "context-snapshot",
+        "portId": "events"
+      }
+    },
+    {
+      "id": "e-context-planner",
+      "from": {
+        "nodeId": "context-snapshot",
+        "portId": "snapshot"
+      },
+      "to": {
+        "nodeId": "intent-planner",
+        "portId": "snapshot"
+      }
+    },
+    {
+      "id": "e-planner-brief",
+      "from": {
+        "nodeId": "intent-planner",
+        "portId": "brief"
+      },
+      "to": {
+        "nodeId": "brief-approval",
+        "portId": "brief"
+      }
+    },
+    {
+      "id": "e-brief-approved",
+      "from": {
+        "nodeId": "brief-approval",
+        "portId": "approved"
+      },
+      "to": {
+        "nodeId": "outline-architect",
+        "portId": "brief"
+      },
+      "label": "审批通过",
+      "condition": "审批通过"
+    },
+    {
+      "id": "e-brief-revise",
+      "from": {
+        "nodeId": "brief-approval",
+        "portId": "feedback"
+      },
+      "to": {
+        "nodeId": "intent-planner",
+        "portId": "feedback"
+      },
+      "label": "要求修改",
+      "condition": "要求修改"
+    },
+    {
+      "id": "e-outline-validate",
+      "from": {
+        "nodeId": "outline-architect",
+        "portId": "outline"
+      },
+      "to": {
+        "nodeId": "outline-contract-gate",
+        "portId": "outline"
+      }
+    },
+    {
+      "id": "e-outline-invalid",
+      "from": {
+        "nodeId": "outline-contract-gate",
+        "portId": "invalid"
+      },
+      "to": {
+        "nodeId": "outline-architect",
+        "portId": "feedback"
+      },
+      "label": "校验失败",
+      "condition": "校验失败"
+    },
+    {
+      "id": "e-outline-approval",
+      "from": {
+        "nodeId": "outline-contract-gate",
+        "portId": "validated"
+      },
+      "to": {
+        "nodeId": "outline-approval",
+        "portId": "outline"
+      }
+    },
+    {
+      "id": "e-outline-revise",
+      "from": {
+        "nodeId": "outline-approval",
+        "portId": "feedback"
+      },
+      "to": {
+        "nodeId": "outline-architect",
+        "portId": "feedback"
+      },
+      "label": "要求修改",
+      "condition": "要求修改"
+    },
+    {
+      "id": "e-outline-write",
+      "from": {
+        "nodeId": "outline-approval",
+        "portId": "approved"
+      },
+      "to": {
+        "nodeId": "chapter-writers",
+        "portId": "outline"
+      },
+      "label": "审批通过",
+      "condition": "审批通过"
+    },
+    {
+      "id": "e-writer-review",
+      "from": {
+        "nodeId": "chapter-writers",
+        "portId": "drafts"
+      },
+      "to": {
+        "nodeId": "reviewer",
+        "portId": "drafts"
+      }
+    },
+    {
+      "id": "e-writer-chapter",
+      "from": {
+        "nodeId": "chapter-writers",
+        "portId": "drafts"
+      },
+      "to": {
+        "nodeId": "chapter-approval",
+        "portId": "drafts"
+      }
+    },
+    {
+      "id": "e-writer-revise",
+      "from": {
+        "nodeId": "chapter-writers",
+        "portId": "drafts"
+      },
+      "to": {
+        "nodeId": "reviser",
+        "portId": "drafts"
+      }
+    },
+    {
+      "id": "e-review-revise",
+      "from": {
+        "nodeId": "reviewer",
+        "portId": "report"
+      },
+      "to": {
+        "nodeId": "reviser",
+        "portId": "report"
+      },
+      "label": "存在 issue",
+      "condition": "存在 issue"
+    },
+    {
+      "id": "e-review-chapter",
+      "from": {
+        "nodeId": "reviewer",
+        "portId": "report"
+      },
+      "to": {
+        "nodeId": "chapter-approval",
+        "portId": "report"
+      },
+      "label": "审校通过",
+      "condition": "审校通过"
+    },
+    {
+      "id": "e-revise-review",
+      "from": {
+        "nodeId": "reviser",
+        "portId": "revised"
+      },
+      "to": {
+        "nodeId": "reviewer",
+        "portId": "revisions"
+      }
+    },
+    {
+      "id": "e-chapter-revise",
+      "from": {
+        "nodeId": "chapter-approval",
+        "portId": "feedback"
+      },
+      "to": {
+        "nodeId": "reviser",
+        "portId": "feedback"
+      },
+      "label": "提出审批意见",
+      "condition": "提出审批意见"
+    },
+    {
+      "id": "e-chapter-beautify",
+      "from": {
+        "nodeId": "chapter-approval",
+        "portId": "approved"
+      },
+      "to": {
+        "nodeId": "beautifier",
+        "portId": "content"
+      },
+      "label": "章节通过",
+      "condition": "章节通过"
+    },
+    {
+      "id": "e-chapter-assess",
+      "from": {
+        "nodeId": "chapter-approval",
+        "portId": "approved"
+      },
+      "to": {
+        "nodeId": "assessment-generator",
+        "portId": "content"
+      },
+      "label": "章节通过",
+      "condition": "章节通过"
+    },
+    {
+      "id": "e-beautify-quality",
+      "from": {
+        "nodeId": "beautifier",
+        "portId": "beautified"
+      },
+      "to": {
+        "nodeId": "quality-gate",
+        "portId": "beautified"
+      }
+    },
+    {
+      "id": "e-assessment-quality",
+      "from": {
+        "nodeId": "assessment-generator",
+        "portId": "assessments"
+      },
+      "to": {
+        "nodeId": "quality-gate",
+        "portId": "assessments"
+      }
+    },
+    {
+      "id": "e-quality-revise",
+      "from": {
+        "nodeId": "quality-gate",
+        "portId": "failed"
+      },
+      "to": {
+        "nodeId": "reviser",
+        "portId": "validation"
+      },
+      "label": "质检失败",
+      "condition": "质检失败"
+    },
+    {
+      "id": "e-quality-publish",
+      "from": {
+        "nodeId": "quality-gate",
+        "portId": "passed"
+      },
+      "to": {
+        "nodeId": "publish-approval",
+        "portId": "manifest"
+      }
+    },
+    {
+      "id": "e-publish-revise",
+      "from": {
+        "nodeId": "publish-approval",
+        "portId": "feedback"
+      },
+      "to": {
+        "nodeId": "reviser",
+        "portId": "feedback"
+      },
+      "label": "驳回",
+      "condition": "驳回"
+    },
+    {
+      "id": "e-publish-final",
+      "from": {
+        "nodeId": "publish-approval",
+        "portId": "approved"
+      },
+      "to": {
+        "nodeId": "publisher",
+        "portId": "manifest"
+      },
+      "label": "确认发布",
+      "condition": "确认发布"
+    }
+  ],
+  "version": 1,
+  "contentHash": "sha256:8048a0fc0b2e296fe027ef966df9f4cf3d690d9771a9d0ab13194775c1bd7b3e"
+}
